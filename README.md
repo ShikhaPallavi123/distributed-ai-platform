@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Distributed AI Platform (local, multi-modal, offline)
 
 A step-by-step learning project building toward an internal, fully offline
