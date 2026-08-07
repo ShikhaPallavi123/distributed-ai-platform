@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Distributed AI Platform (local, multi-modal, offline)
 
 A step-by-step learning project building toward an internal, fully offline
@@ -28,3 +29,7 @@ See `docs/journal/00-architecture.md` for the full system design.
 Developing primarily on a MacBook Air (Apple M4, 16GB RAM). GPU-specific
 work (Phase 6) requires NVIDIA hardware (CUDA) and will be done on
 cloud/lab GPU access separately.
+=======
+# distributed-ai-platform
+Local, offline, multi-modal AI platform: distributed LLM inference, speech/image recognition, GPU optimization, and agents. Built step-by-step as a learning project.
+>>>>>>> 512760107bf1a417535078e6b5148bc41d459296
