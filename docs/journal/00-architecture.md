@@ -52,3 +52,8 @@ summarize the text).
 - GPU optimization work (CUDA, Nsight profiling) requires actual NVIDIA
   hardware — not available on Apple Silicon (Metal is a different stack).
   Plan: pursue lab/cloud GPU access in parallel with Mac-based development.
+
+
+
+
+
