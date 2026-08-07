@@ -136,15 +136,64 @@ Mistakes made and what they taught us:
   repo's main page, and confirmed by refreshing the page and looking for
   the blue topic tags under the repo name.
 
+## Running it (M4 MacBook Air)
+
+### Virtual environment setup
+
+macOS's Homebrew-managed Python blocks installing packages directly into
+the system Python (PEP 668) to avoid breaking the OS's own Python setup.
+The fix is a **virtual environment** -- an isolated, self-contained
+Python install just for this project, so dependencies never conflict
+with the system or other projects.
+
+    python3 -m venv venv          # create the environment (folder: venv/)
+    source venv/bin/activate      # activate it -- prompt shows (venv) prefix
+    pip install transformers torch flask
+
+The environment must be re-activated (`source venv/bin/activate`) every
+time a new terminal tab/window is opened for this project -- it does not
+stay active permanently.
+
+### Running step2_basic_inference.py
+
+    python3 step2_basic_inference.py
+
+First run downloads the model (~250MB) from HuggingFace. Correctly
+classified all 3 test sentences, including the subtle neutral-leaning
+one ("The weather today is fine, nothing special" -> NEGATIVE, 0.98 --
+a reasonable call, since "nothing special" reads as mildly negative).
+
+### Running step3_flask_server.py
+
+Run in one terminal tab (it blocks and waits for requests -- that's
+expected, a server doesn't "finish"):
+
+    python3 step3_flask_server.py
+
+Tested from a second terminal tab with curl. Hit a zsh quoting issue
+first: using double quotes with escaped inner quotes
+(`-d "{\"text\": \"I love learning to code!\"}"`) failed with
+`zsh: event not found: \` -- the `!` character has special meaning in
+zsh (history expansion) and broke the escaped string. Fixed by using
+single quotes around the whole JSON body instead, which avoids the
+escaping entirely:
+
+    curl -X POST http://127.0.0.1:5000/predict -H 'Content-Type: application/json' -d '{"text": "I love learning to code"}'
+
+Response:
+
+    {"confidence": 0.9998, "sentiment": "POSITIVE", "text": "I love learning to code"}
+
 ## Status
 
-Concepts understood; code written. `step2`/`step3` were written in the
-build sandbox, which cannot reach huggingface.co to download model
-weights, so they haven't been run yet — they're meant to be run on a
-machine with internet access (the Mac). Superseded in practice by Phase
-2's approach (Ollama instead of directly downloading HuggingFace
-weights), but kept as reference for how a from-scratch model+Flask
-wrapper works.
+Both scripts have been run successfully on the M4 MacBook Air, inside a
+Python virtual environment (venv). `step2_basic_inference.py` correctly
+classified all 3 test sentences. `step3_flask_server.py` was run
+alongside a `curl` request in a second terminal tab, returning a real
+JSON response as shown above.
+
+Phase 1 is complete: concepts understood, code written, and both scripts
+verified working end to end.
 
 ## Next
 
