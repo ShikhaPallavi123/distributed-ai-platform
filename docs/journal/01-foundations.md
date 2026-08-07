@@ -3,10 +3,62 @@
 ## What this phase covers
 
 Getting comfortable with the basic building blocks before touching
-distribution or local LLMs: running a real pretrained model, and wrapping
-it behind a simple web API.
+distribution or local LLMs: what an API/server actually is, running a
+real pretrained model, wrapping it behind a simple web API, setting up
+this Git repo, and learning core terminal commands needed for everything
+else in the project.
 
-## Steps
+## Background concepts (learned before writing any code)
+
+### Client vs server
+A **browser** (Chrome, Safari) is a *client* — it asks for things and
+displays what comes back. A **server** is a different program, usually
+running elsewhere, that *waits* for requests and *responds* to them. The
+browser's address bar is part of the client; it has nothing to do with
+the server itself. Flask is a tool for writing servers — not an app like
+Chrome, and not something you click around in. It has no window; it just
+runs in the background and listens.
+
+### What an API is
+An API is a contract for how programs talk to each other. Analogy: a
+restaurant menu. The client sends a request ("give me the pasta"), the
+server does the work, and sends back a response. Concretely, our API
+will accept `POST /predict` with a JSON body like
+`{"text": "this movie was amazing"}` and respond with
+`{"sentiment": "positive", "confidence": 0.98}`.
+
+- **JSON**: a universal text format for structured data (key-value
+  pairs), the standard way APIs exchange data between languages.
+- **GET vs POST**: `GET` = "give me data" (loading a page). `POST` =
+  "here's data, do something with it" (submitting a form, or sending
+  text to be classified).
+
+### localhost / 127.0.0.1 / ports
+When a server runs on your own machine, it's reachable only by that
+machine, at the address `127.0.0.1` (a.k.a. `localhost`) — a special
+address that always means "this same computer," not the internet. A
+**port** is like a numbered door on the computer; a server "listens" on
+one port (e.g. `5000`), and requests to that port get handed to that
+server. Turning off the computer running the server ends the server,
+since it only ever existed in that machine's memory. Later (Phase 3+),
+the same code can run on a rented cloud machine (e.g. AWS EC2) with a
+real public address, so anyone on the internet can reach it — same
+concept, different location.
+
+### Distributed inference (the "why" for later phases)
+One server handling requests one at a time is like a single cashier with
+a long line — everyone waits. **Distribution** means adding more workers
+(cashiers) and splitting requests across them so work happens in
+parallel.
+- **Coordinator**: decides who does the work (doesn't do the work itself).
+- **Worker**: has its own copy of the model, does the actual inference.
+- **Data parallelism**: same model copied across workers, each handling
+  different requests in parallel — our approach.
+- **Model parallelism**: the model itself is split across workers
+  because it's too big for one machine — relevant later for very large
+  models.
+
+## Code written
 
 ### step2_basic_inference.py
 Loads a small real pretrained model (DistilBERT fine-tuned for sentiment
@@ -14,28 +66,85 @@ analysis) directly in Python and runs inference on a few example
 sentences. No server, no API yet — just proving a real model can be
 loaded and used.
 
+Python notes for someone coming from another language:
+- Indentation (whitespace) defines code blocks instead of `{ }`.
+- `def function_name():` defines a function.
+- `if __name__ == "__main__":` is the Python idiom for "only run this if
+  this file is executed directly" — similar to a `main()` entry point.
+- f-strings (`f"Text: {sentence}"`) embed variables into strings, similar
+  to template literals in JS.
+
 ### step3_flask_server.py
 Wraps the same model in a Flask server. Exposes `POST /predict`: send
 JSON like `{"text": "..."}`, get back `{"sentiment": ..., "confidence": ...}`.
-The model is loaded once when the server starts (not per-request) to
-avoid reloading it on every call.
 
-## Concepts learned
+Key pieces:
+- `@app.route("/predict", methods=["POST"])` — a decorator connecting a
+  URL path + HTTP verb to the function below it.
+- `request.json` — reads the JSON body sent by the client.
+- `jsonify({...})` — converts a Python dict into a JSON HTTP response.
+- The model is loaded once, at the top level of the file (server
+  startup), not inside the `predict()` function — otherwise every single
+  request would reload the whole model, which is slow.
 
-- Python basics translated from prior language experience (indentation
-  instead of braces, f-strings, `if __name__ == "__main__":` as an entry
-  point).
-- What an API is, and the client/server relationship (browser vs. server,
-  `GET` vs `POST`).
-- What `localhost` / `127.0.0.1` and ports mean.
-- Why a model should be loaded once at server startup, not inside the
-  request handler.
+## Terminal / Unix command-line basics learned
+
+Commands here aren't "Mac-specific" — they're Unix commands, shared by
+macOS, Linux, and (via WSL) Windows. Learning them now transfers directly
+to cloud/Linux servers used later.
+
+| Command | What it does |
+|---|---|
+| `pwd` | Print working directory — shows current folder location |
+| `ls` | List files/folders in the current directory |
+| `ls <folder>` | List contents of a specific folder without `cd`-ing into it |
+| `cd <folder>` | Change directory — move into a folder |
+| `cd ~` | Go to home directory (`~` is shorthand for it) |
+| `cd ..` | Go up one directory level |
+
+Mistakes made and what they taught us:
+- `cd~` (no space) failed with "command not found" — most commands need
+  a space between the command and its argument; without it, the shell
+  reads it as one unknown word.
+- `cd distributed-ai-platform.tar.gz` failed — `cd` only works on
+  folders, never on files.
+- `LS` / `CD` (capital letters) failed — Unix commands are
+  case-sensitive; only lowercase works.
+- `ls Downloads` run *while already inside* `Downloads` looked for a
+  nonexistent `Downloads/Downloads` folder — a reminder to check `pwd`
+  first when a path-based command doesn't behave as expected.
+
+## Git / GitHub setup
+
+- Repo structure: one repo for the whole project
+  (`distributed-ai-platform`), with `docs/journal/` holding a written log
+  per phase, and one folder per phase for code.
+- Added `.gitignore` to keep model weights, virtual environments, and OS
+  junk files out of version control.
+- Added `requirements.txt` for Python dependencies.
+- Initialized the repo, made the first commit, and pushed it to
+  `https://github.com/ShikhaPallavi123/distributed-ai-platform`.
+- Learned that a downloaded `.tar` archive (used to transfer the project
+  from the build environment to the local Mac) may auto-extract in
+  Safari — both the `.tar` file and the extracted folder can end up
+  sitting side by side in `Downloads`.
+- GitHub repo metadata: added a short description and topics
+  (`machine-learning`, `llm`, `flask`, `distributed-systems`,
+  `gpu-computing`, `cuda`, `ollama`, `python`, `offline-ai`,
+  `agentic-ai`) so the repo's purpose and scope are clear at a glance.
+  Topics/description are edited via the gear icon next to "About" on the
+  repo's main page, and confirmed by refreshing the page and looking for
+  the blue topic tags under the repo name.
 
 ## Status
 
-Code written; not yet run locally (sandbox environment can't reach
-huggingface.co to download model weights — needs to be run on a machine
-with internet access, e.g. personal laptop).
+Concepts understood; code written. `step2`/`step3` were written in the
+build sandbox, which cannot reach huggingface.co to download model
+weights, so they haven't been run yet — they're meant to be run on a
+machine with internet access (the Mac). Superseded in practice by Phase
+2's approach (Ollama instead of directly downloading HuggingFace
+weights), but kept as reference for how a from-scratch model+Flask
+wrapper works.
 
 ## Next
 

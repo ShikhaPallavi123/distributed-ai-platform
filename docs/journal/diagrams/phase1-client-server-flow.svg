@@ -1,0 +1,48 @@
+<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Phase 1 request flow: client sends a POST request to the Flask server, which runs the model and returns JSON</title>
+<desc>A client such as curl or a browser sends a POST request to localhost port 5000 slash predict with a JSON body containing text. The Flask server, which loaded the sentiment model once at startup, runs inference and returns a JSON response with sentiment and confidence.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#444441" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect width="680" height="420" fill="#ffffff"/>
+
+<rect x="40" y="40" width="180" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="130" y="60" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#042C53">Client</text>
+<text x="130" y="80" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#0C447C">curl / browser / React</text>
+
+<rect x="460" y="40" width="180" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="550" y="60" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#26215C">Flask server</text>
+<text x="550" y="80" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3C3489">localhost:5000</text>
+
+<path d="M220 58 L456 58" fill="none" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="340" y="46" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3d3d3a">POST /predict</text>
+<text x="340" y="128" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3d3d3a">body: { "text": "this movie was amazing" }</text>
+
+<path d="M460 90 L224 90" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="340" y="112" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3d3d3a">200 OK response</text>
+<text x="340" y="145" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3d3d3a">body: { "sentiment": "POSITIVE", "confidence": 0.98 }</text>
+
+<line x1="550" y1="96" x2="550" y2="176" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="400" y="180" width="240" height="130" rx="16" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="520" y="206" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#04342C">Inside the server</text>
+
+<rect x="420" y="222" width="200" height="40" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="520" y="246" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#085041">Model loaded once at startup</text>
+
+<line x1="520" y1="262" x2="520" y2="274" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="420" y="278" width="200" height="28" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="520" y="296" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#085041">predict() runs inference</text>
+
+<rect x="40" y="180" width="240" height="90" rx="16" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="160" y="206" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#2C2C2A">Key terms</text>
+<text x="160" y="228" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#444441">POST = "here's data, do something"</text>
+<text x="160" y="246" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#444441">JSON = key/value data format</text>
+<text x="160" y="264" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#444441">localhost = "this same machine"</text>
+
+<text x="340" y="360" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#5F5E5A">Client and server are separate programs -- the client only sees what the server sends back</text>
+</svg>
