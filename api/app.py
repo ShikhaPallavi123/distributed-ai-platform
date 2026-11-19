@@ -169,6 +169,35 @@ class APIHandler(BaseHTTPRequestHandler):
             return {}
         return json.loads(self.rfile.read(length))
 
+    def _serve_static(self, file_path: str):
+        """Serve a static file from the ui/ directory."""
+        base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ui")
+        full_path = os.path.normpath(os.path.join(base_dir, file_path))
+        if not full_path.startswith(os.path.normpath(base_dir)):
+            self._send_json({"error": "Forbidden"}, 403)
+            return
+        if not os.path.isfile(full_path):
+            self._send_json({"error": "Not found"}, 404)
+            return
+        content_types = {
+            ".html": "text/html",
+            ".css": "text/css",
+            ".js": "application/javascript",
+            ".json": "application/json",
+            ".png": "image/png",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+        }
+        ext = os.path.splitext(full_path)[1]
+        content_type = content_types.get(ext, "application/octet-stream")
+        with open(full_path, "rb") as f:
+            content = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
     def do_OPTIONS(self):
         self._send_json({})
 
@@ -178,7 +207,6 @@ class APIHandler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
 
         routes = {
-            "": self._health,
             "/api/health": self._health,
             "/api/models": self._list_models,
             "/api/workers": self._list_workers,
@@ -201,8 +229,12 @@ class APIHandler(BaseHTTPRequestHandler):
         handler = routes.get(path)
         if handler:
             handler()
+        elif path.startswith("/static/"):
+            # Serve static files (css, js)
+            self._serve_static(path[1:])  # strip leading /
         else:
-            self._send_json({"error": "Not found", "path": path}, 404)
+            # Serve the dashboard for any non-API route
+            self._serve_static("templates/index.html")
 
     def do_POST(self):
         parsed = urlparse(self.path)
