@@ -2,7 +2,9 @@
 
 > A production-grade, full-stack distributed AI inference engine built **entirely from scratch** — from OS-level memory allocators to agentic AI orchestration. Zero ML framework dependencies. Pure Python + NumPy.
 
-[![CI/CD](https://github.com/YOUR_USERNAME/neuroflux/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/neuroflux/actions)
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-NeuroFlux_Dashboard-00d4aa?style=for-the-badge)](https://shikhapallavi123.github.io/distributed-ai-platform/)
+
+[![CI/CD](https://github.com/ShikhaPallavi123/distributed-ai-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/ShikhaPallavi123/distributed-ai-platform/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
@@ -152,8 +154,8 @@ neuroflux/
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/neuroflux.git
-cd neuroflux
+git clone https://github.com/ShikhaPallavi123/distributed-ai-platform.git
+cd distributed-ai-platform
 
 # Install (just numpy!)
 pip install -r requirements.txt
@@ -248,7 +250,9 @@ mem.defragment()  # Coalesce free blocks
 
 ---
 
-## 📊 Dashboard Preview
+## 📊 Live Dashboard
+
+> **[👉 Try the Live Demo](https://shikhapallavi123.github.io/distributed-ai-platform/)** — no installation needed!
 
 The full-stack dashboard includes:
 
