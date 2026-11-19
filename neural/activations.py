@@ -6,8 +6,6 @@ supports autograd through the ops defined in ``tensor.py`` and ``autograd.py``.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from neural.tensor import Tensor

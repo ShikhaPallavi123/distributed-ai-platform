@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from agentic.memory import WorkingMemory
-from agentic.reasoning import ChainOfThought, ReasoningTrace
+from agentic.reasoning import ChainOfThought
 from agentic.tools import Tool, ToolCall, ToolRegistry
 
 

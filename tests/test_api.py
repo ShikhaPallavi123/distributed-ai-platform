@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from api.app import AppState, create_server
+from api.app import AppState, create_server  # noqa: E402
 
 
 class TestAppState(unittest.TestCase):

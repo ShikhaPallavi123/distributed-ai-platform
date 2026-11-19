@@ -1,7 +1,6 @@
 """Variational Autoencoder with ELBO loss."""
 
 import numpy as np
-from typing import Optional
 
 
 class _Linear:

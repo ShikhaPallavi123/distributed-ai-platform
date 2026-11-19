@@ -1,7 +1,7 @@
 """Convolutional Neural Network components built on numpy."""
 
 import numpy as np
-from typing import Optional, Literal
+from typing import Optional
 
 
 class Conv2D:

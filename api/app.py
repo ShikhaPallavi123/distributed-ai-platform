@@ -5,21 +5,21 @@ Provides REST endpoints for inference, model management, worker monitoring,
 agentic AI orchestration, and system metrics.
 """
 
-import asyncio
 import time
 import uuid
 import json
 import os
 from dataclasses import dataclass, field, asdict
-from typing import Any, Optional
+from typing import Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-import threading
 import traceback
+
 
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class InferenceRequest:
@@ -30,6 +30,7 @@ class InferenceRequest:
     priority: int = 1
     timeout: float = 30.0
 
+
 @dataclass
 class InferenceResponse:
     request_id: str
@@ -39,6 +40,7 @@ class InferenceResponse:
     worker_id: str = ""
     status: str = "success"
     error: str = ""
+
 
 @dataclass
 class ModelInfo:
@@ -51,6 +53,7 @@ class ModelInfo:
     status: str = "loaded"
     accuracy: float = 0.0
     created_at: float = field(default_factory=time.time)
+
 
 @dataclass
 class WorkerInfo:
@@ -65,6 +68,7 @@ class WorkerInfo:
     models_loaded: list = field(default_factory=list)
     uptime_seconds: float = 0.0
 
+
 @dataclass
 class AgentTask:
     task_id: str
@@ -75,9 +79,11 @@ class AgentTask:
     result: Any = None
     created_at: float = field(default_factory=time.time)
 
+
 # ---------------------------------------------------------------------------
 # In-memory state (would be Redis/DB in production)
 # ---------------------------------------------------------------------------
+
 
 class AppState:
     def __init__(self):
@@ -142,11 +148,14 @@ class AppState:
             "p99": float(np.percentile(arr, 99)),
         }
 
+
 state = AppState()
+
 
 # ---------------------------------------------------------------------------
 # Request handler
 # ---------------------------------------------------------------------------
+
 
 class APIHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the NeuroFlux API."""
@@ -204,7 +213,7 @@ class APIHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
-        params = parse_qs(parsed.query)
+        parse_qs(parsed.query)  # available for future route params
 
         routes = {
             "/api/health": self._health,
@@ -361,7 +370,7 @@ class APIHandler(BaseHTTPRequestHandler):
             resp = InferenceResponse(
                 request_id=req.request_id,
                 model=req.model,
-                output={"result": f"Inference result for input", "confidence": round(random.uniform(0.85, 0.99), 3)},
+                output={"result": "Inference result for input", "confidence": round(random.uniform(0.85, 0.99), 3)},
                 latency_ms=round(latency, 2),
                 worker_id=worker.worker_id,
             )

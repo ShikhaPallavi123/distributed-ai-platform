@@ -13,6 +13,7 @@
 # something human-readable.
 from transformers import pipeline
 
+
 def load_model():
     """
     Loads a small, pretrained sentiment-analysis model.

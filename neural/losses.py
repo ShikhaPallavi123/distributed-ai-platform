@@ -6,8 +6,6 @@ whose ``.backward()`` propagates gradients through the computation graph.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from neural.tensor import Tensor
@@ -37,15 +35,15 @@ class CrossEntropyLoss:
         log_probs = shifted - log_sum_exp  # (N, C)
 
         n = logits.shape[0]
-        nll = -log_probs[np.arange(n), labels]  # (N,)
+        _nll = -log_probs[np.arange(n), labels]  # noqa: F841  (N,)
 
         # Wrap back into Tensor graph via softmax-based gradient
-        probs = pred.softmax(axis=-1)  # autograd-tracked
+        pred.softmax(axis=-1)  # autograd-tracked
         one_hot = Tensor(np.zeros_like(logits))
         one_hot.data[np.arange(n), labels] = 1.0
         # loss = -sum(one_hot * log_probs) / N  (re-derive with tracked ops)
-        loss = (Tensor(-1.0) * (pred * one_hot).sum(axis=-1)).mean() + \
-               Tensor(np.float32(np.mean(np.log(np.sum(np.exp(shifted), axis=-1)))))
+        loss = ((Tensor(-1.0) * (pred * one_hot).sum(axis=-1)).mean()
+                + Tensor(np.float32(np.mean(np.log(np.sum(np.exp(shifted), axis=-1))))))
         return loss
 
 

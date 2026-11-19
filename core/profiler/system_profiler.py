@@ -7,7 +7,6 @@ flame-graph data structures for call-stack analysis.
 
 from __future__ import annotations
 
-import math
 import os
 import statistics
 import threading

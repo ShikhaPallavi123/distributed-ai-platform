@@ -187,6 +187,7 @@ class Coordinator:
         if not candidates:
             return None
         # Prefer lowest latency among healthy, non-busy workers
+
         def score(w: InferenceWorker) -> float:
             h = self._health.get(w.worker_id)
             return (h.avg_latency_ms if h else 0) + w._active_requests * 10

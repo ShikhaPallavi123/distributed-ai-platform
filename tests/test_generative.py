@@ -4,7 +4,7 @@ import numpy as np
 from generative import (
     TextGenerator, Tokenizer, TokenizerMode,
     SimpleDiffusion, ImageVAE, NoiseScheduler, ScheduleType,
-    Word2Vec, Word2VecMode, EmbeddingModel, SemanticSearch,
+    Word2Vec, EmbeddingModel, SemanticSearch,
 )
 
 

@@ -12,10 +12,9 @@ import uuid
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
-from agentic.agent import Agent, AgentConfig, AgentState, ReactAgent, StepRecord
-from agentic.memory import WorkingMemory
+from agentic.agent import Agent, AgentConfig, ReactAgent
 from agentic.tools import ToolRegistry, create_default_registry
 
 

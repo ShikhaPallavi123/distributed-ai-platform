@@ -7,7 +7,7 @@ and gradient accumulation. All gradient functions follow PyTorch-style conventio
 from __future__ import annotations
 
 import threading
-from typing import Any, List, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 
@@ -128,7 +128,6 @@ def backward(root: "Tensor", grad: Optional[np.ndarray] = None) -> None:
 def _match_grads(ctx: Function, grads: Tuple[Optional[np.ndarray], ...]) -> List[Optional[np.ndarray]]:
     """Return one gradient per parent, handling mismatches in tuple length."""
     result: list = []
-    parent_indices = [idx for _, idx in ctx.parents]
     for _, idx in ctx.parents:
         if idx < len(grads):
             result.append(grads[idx])

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import heapq
 import threading
-import time
 from collections import defaultdict, deque
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -311,6 +310,7 @@ class InferenceScheduler(TaskScheduler):
         if not batch:
             return
         # Wrap the batch into a single mega-task.
+
         def _run_batch(tasks: list[Task] = batch) -> list[Any]:
             results = []
             for t in tasks:

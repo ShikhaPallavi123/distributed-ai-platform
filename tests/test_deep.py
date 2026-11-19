@@ -2,9 +2,9 @@
 import unittest
 import numpy as np
 from deep import (
-    CNN, ResNet, ResidualBlock,
+    CNN, ResidualBlock,
     RNNCell, LSTMCell, GRUCell, SequenceModel,
-    TransformerEncoder, TransformerBlock, GPTModel,
+    TransformerEncoder, GPTModel,
     VAE, GAN, WGAN,
 )
 

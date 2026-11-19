@@ -57,6 +57,7 @@ class TestTaskQueue(unittest.TestCase):
     def test_priority_queue(self):
         import asyncio
         from inference.task_queue import PriorityTaskQueue, TaskItem
+
         async def _test():
             q = PriorityTaskQueue()
             await q.enqueue(TaskItem(task_id="t1", payload={"task": "low"}, priority=1))

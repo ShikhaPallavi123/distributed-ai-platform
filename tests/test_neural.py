@@ -2,12 +2,12 @@
 import unittest
 import numpy as np
 from neural import (
-    Tensor, Linear, Sequential, Conv2D, BatchNorm, LayerNorm,
+    Tensor, Linear, Sequential, BatchNorm, LayerNorm,
     Dropout, Embedding, MultiHeadAttention,
-    SGD, Adam, AdamW, StepLR,
+    SGD, Adam,
     MSELoss, CrossEntropyLoss, BCELoss,
-    ReLU, Sigmoid, Softmax, GELU,
-    Model, no_grad, randn, zeros, ones,
+    ReLU, Sigmoid, Softmax,
+    no_grad, randn, zeros, ones,
 )
 
 

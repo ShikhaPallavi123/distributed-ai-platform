@@ -6,9 +6,7 @@ the custom tensor / autograd framework.
 
 from __future__ import annotations
 
-import json
-import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import numpy as np
 

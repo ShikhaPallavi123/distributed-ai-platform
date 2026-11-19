@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 
 @dataclass
@@ -318,7 +317,7 @@ class AnalogicalReasoner:
             lines.append(f"  - Similar problem: {a['problem']}")
             lines.append(f"    Solution used: {a['solution']}")
             lines.append(f"    Similarity: {a['similarity']:.2f}")
-        lines.append(f"Suggested approach: adapt the solution from the most similar case.")
+        lines.append("Suggested approach: adapt the solution from the most similar case.")
         return "\n".join(lines)
 
 

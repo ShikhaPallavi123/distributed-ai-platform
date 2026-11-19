@@ -29,6 +29,7 @@ class TestCluster(unittest.TestCase):
         import asyncio
         from distributed.cluster import Cluster
         from distributed.node import Node
+
         async def _test():
             cluster = Cluster()
             node = Node(node_id="n1", host="localhost", port=8001)

@@ -3,8 +3,8 @@ import unittest
 import time
 from core import (
     MemoryPool, AllocationStrategy, TensorMemoryManager,
-    TaskScheduler, Task, TaskState, SchedulingAlgorithm,
-    MessageBus, Message, MessageType,
+    TaskScheduler, Task, SchedulingAlgorithm,
+    MessageBus, Message,
     SystemProfiler, InferenceProfiler, FlameGraph,
 )
 
@@ -32,7 +32,7 @@ class TestMemoryPool(unittest.TestCase):
     def test_defragment(self):
         pool = MemoryPool(4096)
         b1 = pool.allocate(256)
-        b2 = pool.allocate(256)
+        pool.allocate(256)
         pool.free(b1.address)
         pool.defragment()
         self.assertGreater(pool.free_space, 0)
@@ -88,7 +88,10 @@ class TestMessageBus(unittest.TestCase):
     def test_unsubscribe(self):
         bus = MessageBus()
         received = []
-        handler = lambda msg: received.append(msg)
+
+        def handler(msg):
+            received.append(msg)
+
         bus.subscribe("topic.a", handler)
         bus.unsubscribe("topic.a", handler)
         msg = Message(topic="topic.a", payload={"data": "nope"})

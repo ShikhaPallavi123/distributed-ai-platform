@@ -12,11 +12,11 @@ import numpy as np
 import sys
 sys.path.insert(0, '..')
 
-from neural.tensor import Tensor
-from neural.layers import Linear
-from neural.activations import ReLU, Sigmoid
-from neural.losses import MSELoss
-from neural.optimizers import Adam
+from neural.tensor import Tensor  # noqa: E402
+from neural.layers import Linear  # noqa: E402
+from neural.activations import ReLU, Sigmoid  # noqa: E402
+from neural.losses import MSELoss  # noqa: E402
+from neural.optimizers import Adam  # noqa: E402
 
 
 def main():

@@ -157,7 +157,6 @@ class GAN:
         d_loss = self.discriminator_loss(real_data, fake_data)
         for param in self.discriminator.parameters():
             grad = np.zeros_like(param)
-            it = np.nditer(param, flags=["multi_index"], op_flags=["readwrite"])
             # Sample a subset for efficiency
             indices = np.random.choice(param.size, min(param.size, 50), replace=False)
             flat = param.ravel()

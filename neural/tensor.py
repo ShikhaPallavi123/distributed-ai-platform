@@ -7,7 +7,7 @@ similar to ``torch.Tensor``.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 
@@ -16,7 +16,7 @@ from neural.autograd import (
     SumBackward, MeanBackward, ReshapeBackward, TransposeBackward,
     ReLUBackward, SigmoidBackward, SoftmaxBackward, TanhBackward,
     ExpBackward, LogBackward, PowBackward,
-    backward as _run_backward, is_grad_enabled,
+    backward as _run_backward,
 )
 
 # Type alias for things convertible to a Tensor
@@ -277,7 +277,7 @@ if __name__ == "__main__":
 
     # Forward pass
     h = (X @ W1 + b1).relu()      # hidden layer
-    out = (h @ W2 + b2).sigmoid() # output
+    out = (h @ W2 + b2).sigmoid()  # output
     loss = ((out - Tensor(np.ones((8, 1)))) ** 2).mean()
 
     loss.backward()

@@ -7,16 +7,12 @@ multi-head attention, and a Sequential container.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
 from neural.tensor import Tensor
-from neural.autograd import (
-    Function, is_grad_enabled,
-    ReLUBackward, SoftmaxBackward,
-)
-from neural.activations import GELU
+from neural.autograd import Function
 
 
 # ===================================================================
@@ -260,7 +256,7 @@ class BatchNorm(Layer):
         else:
             shape = (1, -1)
         mean_t = Tensor(mean.reshape(shape))
-        var_t = Tensor(var.reshape(shape))
+        Tensor(var.reshape(shape))
         gamma_r = self.gamma.reshape(shape)
         beta_r = self.beta.reshape(shape)
 
@@ -391,8 +387,8 @@ class MultiHeadAttention(Layer):
         return self.out_proj(context)
 
     def parameters(self) -> List[Tensor]:
-        return (self.q_proj.parameters() + self.k_proj.parameters() +
-                self.v_proj.parameters() + self.out_proj.parameters())
+        return (self.q_proj.parameters() + self.k_proj.parameters()
+                + self.v_proj.parameters() + self.out_proj.parameters())
 
 
 # ===================================================================

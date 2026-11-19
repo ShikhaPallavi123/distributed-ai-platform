@@ -13,11 +13,11 @@ import numpy as np
 import sys
 sys.path.insert(0, '..')
 
-from ml.linear_regression import LinearRegression
-from ml.logistic_regression import LogisticRegression
-from ml.decision_tree import DecisionTree
-from ml.knn import KNearestNeighbors
-from ml.ensemble import RandomForest
+from ml.linear_regression import LinearRegression  # noqa: E402
+from ml.logistic_regression import LogisticRegression  # noqa: E402
+from ml.decision_tree import DecisionTree  # noqa: E402
+from ml.knn import KNearestNeighbors  # noqa: E402
+from ml.ensemble import RandomForest  # noqa: E402
 
 
 def main():
@@ -34,7 +34,7 @@ def main():
 
     model = LinearRegression()
     model.fit(X, y)
-    y_pred = model.predict(X)
+    model.predict(X)
     r2 = model.score(X, y)
     print(f"  R² Score: {r2:.4f}")
     print(f"  Coefficients: {model.weights}")

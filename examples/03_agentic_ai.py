@@ -11,8 +11,8 @@ Demonstrates:
 import sys
 sys.path.insert(0, '..')
 
-from agentic.tools import create_default_registry
-from agentic.reasoning import ChainOfThought, TreeOfThought
+from agentic.tools import create_default_registry  # noqa: E402
+from agentic.reasoning import ChainOfThought, TreeOfThought  # noqa: E402
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
     print("-" * 40)
     cot = ChainOfThought()
     result = cot.reason("What is the area of a circle with radius 5?")
-    print(f"  Question: What is the area of a circle with radius 5?")
+    print("  Question: What is the area of a circle with radius 5?")
     for i, step in enumerate(result.get('steps', [])):
         print(f"  Step {i + 1}: {step}")
     print(f"  Conclusion: {result.get('conclusion', 'N/A')}")

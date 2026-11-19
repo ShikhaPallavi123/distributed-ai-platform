@@ -7,7 +7,9 @@ from typing import Optional, Protocol
 class RNNCellBase(Protocol):
     """Protocol for RNN cells."""
     hidden_size: int
-    def forward(self, x: np.ndarray, h: np.ndarray) -> np.ndarray: ...
+
+    def forward(self, x: np.ndarray, h: np.ndarray) -> np.ndarray:
+        ...
 
 
 class RNNCell:
