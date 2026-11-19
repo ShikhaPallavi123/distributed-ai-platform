@@ -1,18 +1,22 @@
-# Python
 __pycache__/
-*.pyc
-.venv/
-venv/
-
-# macOS
-.DS_Store
-
-# Model weights / large files (never commit these)
-*.gguf
-*.bin
-*.safetensors
-models/
-.ollama/
-
-# Environment / secrets
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
 .env
+.venv
+venv/
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+models/*.bin
+models/*.pt
+*.npz
+.coverage
+htmlcov/

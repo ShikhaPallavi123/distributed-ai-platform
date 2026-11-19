@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroFlux — Distributed AI Inference Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="logo-icon">N</div>
+      <div class="logo-text">
+        <h2>NeuroFlux</h2>
+        <span>v1.0 · Inference Engine</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Overview</div>
+      <div class="nav-item active" data-page="dashboard">
+        <span class="icon">📊</span> Dashboard
+      </div>
+      <div class="nav-item" data-page="models">
+        <span class="icon">🧠</span> Models
+        <span class="nav-badge" id="model-count">0</span>
+      </div>
+      <div class="nav-item" data-page="workers">
+        <span class="icon">⚡</span> Workers
+        <span class="nav-badge" id="worker-count">0</span>
+      </div>
+
+      <div class="nav-section">Intelligence</div>
+      <div class="nav-item" data-page="inference">
+        <span class="icon">🔮</span> Inference
+      </div>
+      <div class="nav-item" data-page="agents">
+        <span class="icon">🤖</span> Agentic AI
+      </div>
+
+      <div class="nav-section">System</div>
+      <div class="nav-item" data-page="architecture">
+        <span class="icon">🏗️</span> Architecture
+      </div>
+      <div class="nav-item" data-page="topology">
+        <span class="icon">🌐</span> Cluster Topology
+      </div>
+      <div class="nav-item" data-page="terminal">
+        <span class="icon">💻</span> Terminal
+      </div>
+    </nav>
+    <div style="padding: 16px; border-top: 1px solid var(--border);">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted);">
+        <span class="live-dot"></span> System Online
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <button class="btn-secondary btn-sm" id="menu-toggle" style="display:none;">☰</button>
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" placeholder="Search models, workers, metrics...">
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 12px; color: var(--text-muted);" id="clock"></span>
+        <span class="badge healthy"><span class="badge-dot"></span> Healthy</span>
+      </div>
+    </header>
+
+    <div class="content" id="content">
+      <!-- Pages injected by JS -->
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

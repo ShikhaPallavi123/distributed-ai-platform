@@ -1,0 +1,71 @@
+name: NeuroFlux CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install flake8
+      - run: flake8 --max-line-length=120 --ignore=E501,W503,E203 --exclude=__pycache__ .
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -r requirements.txt
+      - run: python -m unittest discover tests/ -v
+        env:
+          PYTHONPATH: .
+
+  import-check:
+    name: Module Import Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Verify all modules import
+        run: |
+          python -c "
+          modules = ['core', 'neural', 'ml', 'deep', 'generative', 'agentic', 'distributed', 'inference']
+          for m in modules:
+              __import__(m)
+              print(f'✓ {m}')
+          print('All modules imported successfully')
+          "
+        env:
+          PYTHONPATH: .
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [test, import-check]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t neuroflux:latest .
+      - name: Test Docker health
+        run: |
+          docker run -d --name nf-test -p 8080:8080 neuroflux:latest
+          sleep 5
+          curl -f http://localhost:8080/api/health || exit 1
+          docker stop nf-test
