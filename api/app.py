@@ -14,6 +14,7 @@ from typing import Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import traceback
+from inference.demo_sentiment import DemoSentimentModel
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +157,6 @@ class AppState:
 state = AppState()
 
 # Real, locally trained inference model; other registry entries are demo metadata.
-from inference.demo_sentiment import DemoSentimentModel
 sentiment_model = DemoSentimentModel()
 
 
@@ -316,7 +316,6 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send_json({"error": f"Worker '{wid}' not found"}, 404)
 
     def _get_metrics(self):
-        import random
         state.metrics["uptime_seconds"] = time.time() - state.start_time
         state.metrics["active_workers"] = len([w for w in state.workers.values() if w.status == "healthy"])
         state.metrics["models_loaded"] = len(state.models)
@@ -393,41 +392,16 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send_json(asdict(response))
             return
 
-            workers = [w for w in state.workers.values() if w.status == "healthy" and req.model in w.models_loaded]
-            worker = min(workers, key=lambda w: w.gpu_memory_used) if workers else list(state.workers.values())[0]
-
-            worker.tasks_completed += 1
-            state.metrics["total_requests"] += 1
-            state.record_latency(latency)
-
-            resp = InferenceResponse(
-                request_id=req.request_id,
-                model=req.model,
-                output={"result": "Inference result for input", "confidence": round(random.uniform(0.85, 0.99), 3)},
-                latency_ms=round(latency, 2),
-                worker_id=worker.worker_id,
-            )
-            state.requests[resp.request_id] = resp
-            self._send_json(asdict(resp))
         except Exception as e:
             state.metrics["total_errors"] += 1
             self._send_json({"error": str(e), "traceback": traceback.format_exc()}, 500)
 
     def _batch_inference(self):
-        body = self._read_body()
-        requests = body.get("requests", [])
-        results = []
-        for req_data in requests:
-            import random
-            results.append({
-                "request_id": str(uuid.uuid4()),
-                "model": req_data.get("model", "unknown"),
-                "output": {"result": "batch_result", "confidence": round(random.uniform(0.85, 0.99), 3)},
-                "latency_ms": round(random.uniform(5, 20), 2),
-                "status": "success",
-            })
-        state.metrics["total_requests"] += len(results)
-        self._send_json({"batch_size": len(results), "results": results})
+        # Batch execution must not claim results from unexecuted models.
+        self._send_json({
+            "error": "Batch inference is not implemented yet.",
+            "code": "BATCH_NOT_IMPLEMENTED",
+        }, 501)
 
     def _register_model(self):
         body = self._read_body()
