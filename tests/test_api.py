@@ -9,6 +9,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from api.app import AppState, create_server  # noqa: E402
+from unittest import mock  # noqa: E402
+import api.app as api_module  # noqa: E402
 
 
 class TestAppState(unittest.TestCase):
@@ -93,8 +95,8 @@ class TestAPIEndpoints(unittest.TestCase):
             'model': 'gpt-neuroflux-7b',
             'input': {'text': 'Hello world'}
         })
-        self.assertEqual(status, 503)
-        self.assertEqual(body['code'], 'MODEL_NOT_DEPLOYED')
+        self.assertEqual(status, 404)
+        self.assertIn('not found', body['error'])
 
     def test_real_sentiment_inference(self):
         status, body = self._post('/api/inference', {
@@ -110,6 +112,36 @@ class TestAPIEndpoints(unittest.TestCase):
             'model': 'demo-sentiment-v1', 'input': {'text': ''}
         })
         self.assertEqual(status, 400)
+
+
+    def test_only_real_model_registered(self):
+        status, body = self._get('/api/models')
+        self.assertEqual(status, 200)
+        self.assertTrue(any(m['id'] == 'demo-sentiment-v1' for m in body['models']))
+        self.assertFalse(any(m['name'] == 'gpt-neuroflux-7b' for m in body['models']))
+
+    def test_ollama_model_api_with_mock_backend(self):
+        class FakeOllama:
+            def generate(self, prompt):
+                return {'text': 'A model answer to ' + prompt, 'model_type': 'ollama_pretrained_llm'}
+
+        api_module.state.models['ollama-local'] = api_module.ModelInfo(
+            'ollama-local', '1.0', 'Ollama', [1], [1], 0,
+        )
+        api_module.state.workers['ollama-backend'] = api_module.WorkerInfo(
+            'ollama-backend', 'localhost', 11434,
+        )
+        try:
+            with mock.patch.object(api_module, 'ollama_client', FakeOllama()):
+                status, body = self._post('/api/inference', {
+                    'model': 'ollama-local',
+                    'input': {'text': 'What is inference?'},
+                })
+            self.assertEqual(status, 200)
+            self.assertEqual(body['output']['text'], 'A model answer to What is inference?')
+        finally:
+            del api_module.state.models['ollama-local']
+            del api_module.state.workers['ollama-backend']
 
 
 if __name__ == "__main__":
