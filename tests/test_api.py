@@ -184,9 +184,11 @@ class TestAPIEndpoints(unittest.TestCase):
 
     def test_admin_registration_metadata_only(self):
         with mock.patch.dict(os.environ, {'NEUROFLUX_ADMIN_TOKEN': 'temporary-test-secret'}):
-            status, body = self._post('/api/models',
+            status, body = self._post(
+                '/api/models',
                 {'name': 'registered-only-test'},
-                headers={'Authorization': 'Bearer temporary-test-secret'})
+                headers={'Authorization': 'Bearer temporary-test-secret'},
+            )
         try:
             self.assertEqual(status, 201)
             self.assertEqual(body['model']['status'], 'registered')
