@@ -301,7 +301,7 @@ class APIHandler(BaseHTTPRequestHandler):
         })
 
     def _list_models(self):
-        self._send_json({"models": [asdict(m) for m in state.models.values()]})
+        self._send_json({"models": [{"id": m.name, **asdict(m)} for m in state.models.values()]})
 
     def _get_model(self, name: str):
         if name in state.models:
@@ -310,7 +310,7 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send_json({"error": f"Model '{name}' not found"}, 404)
 
     def _list_workers(self):
-        self._send_json({"workers": [asdict(w) for w in state.workers.values()]})
+        self._send_json({"workers": [{"id": w.worker_id, "gpu_type": "CPU" if not w.gpu_memory_total else "Unknown", "current_load": 0, **asdict(w)} for w in state.workers.values()]})
 
     def _get_worker(self, wid: str):
         if wid in state.workers:
