@@ -578,32 +578,18 @@ async function runAgent() {
   const maxSteps = document.getElementById('agent-steps').value;
   const el = document.getElementById('agent-result');
   const trace = document.getElementById('reasoning-trace');
-  el.innerHTML = '<div class="badge busy">Agent thinking...</div>';
-  trace.innerHTML += `<div class="terminal-line"><span class="terminal-prompt">agent&gt;</span> <span class="terminal-output">Task: ${task}</span></div>`;
-  let r = await api('/api/agents/run', {
+  el.textContent = 'Checking agent availability...';
+  trace.textContent = 'Agent execution trace is only available after a real backend is connected.';
+  const r = await api('/api/agents/run', {
     method: 'POST',
-    body: JSON.stringify({ task, max_steps: parseInt(maxSteps) }),
+    body: JSON.stringify({ goal: task, max_steps: parseInt(maxSteps) }),
   });
-  // Mock response for static demo
-  if (!r || !r.result) {
-    r = {
-      result: `Task completed: "${task.slice(0,60)}"`,
-      steps: [
-        { type: 'thought', content: `Analyzing task: "${task.slice(0,80)}"` },
-        { type: 'action', content: 'Using tool: web_search("' + task.split(' ').slice(0,3).join(' ') + '")' },
-        { type: 'observation', content: 'Found 3 relevant results. Processing data...' },
-        { type: 'thought', content: 'Synthesizing findings and formulating response.' },
-        { type: 'action', content: 'Using tool: data_analyzer(results)' },
-        { type: 'result', content: 'Task completed successfully with high confidence.' },
-      ],
-    };
+  if (!r || r.error || !r.result) {
+    el.textContent = (r && r.error) || 'Agent backend unavailable.';
+    return;
   }
-  el.innerHTML = `<div class="code-block" style="margin-top:8px; color:var(--green);">✓ ${r.result}</div>`;
-  if (r.steps) {
-    r.steps.forEach(s => {
-      trace.innerHTML += `<div class="terminal-line"><span class="terminal-prompt">  ${s.type}&gt;</span> <span class="terminal-output">${s.content}</span></div>`;
-    });
-  }
+  el.textContent = JSON.stringify(r.result, null, 2);
+  trace.textContent = JSON.stringify(r.steps || [], null, 2);
 }
 
 function execCommand() {
@@ -626,7 +612,7 @@ function execCommand() {
     status: () => `<span class="terminal-success">System Status: ONLINE</span>
   Workers: ${state.workers.length} active
   Models: ${state.models.length} registered
-  Uptime: ${Math.floor(Math.random() * 24)}h ${Math.floor(Math.random() * 60)}m`,
+  Uptime: ${state.demoMode ? 'sample preview' : Math.floor((state.metrics.uptime_seconds || 0) / 60) + 'm'}`,
     models: () => state.models.map(m => `  <span class="terminal-success">●</span> ${m.name} [${m.status}]`).join('\n'),
     workers: () => state.workers.map(w => `  <span class="${w.status === 'healthy' ? 'terminal-success' : 'terminal-error'}">●</span> ${w.id} — ${w.status} (${w.current_load}% load)`).join('\n'),
     metrics: () => `  Requests: ${fmt(state.metrics.total_requests || 0)}
