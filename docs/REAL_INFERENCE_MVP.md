@@ -13,7 +13,7 @@ server or execute GPU inference. The backend must be run separately.
 - `/api/inference`: returns the actual executed model output, or a clear error.
 - `/api/metrics/latency` and `/api/metrics/throughput`: use real successful
   request observations. Empty history means no recent measurements.
-- `/api/batch`: **not implemented** (HTTP 501), not synthetic batch results.
+- `/api/batch`: genuinely executes 1–32 sentiment-classifier requests, sequentially on CPU, with measured outputs and latency. Other models return HTTP 501 until batch support is implemented for them.
 
 **Not yet production ready:** accounts, authentication, secure deployment,
 multiple remote GPU workers, model-upload safety, billing, quality evaluation,
@@ -38,6 +38,17 @@ curl -s http://localhost:8080/api/inference \
 ```
 
 The response includes a real classifier prediction and measured latency.
+
+## Real batch inference (sentiment classifier)
+
+```bash
+curl -s http://localhost:8080/api/batch \\
+  -H "Content-Type: application/json" \\
+  -d '{"requests":[{"model":"demo-sentiment-v1","input":{"text":"wonderful great"}},{"model":"demo-sentiment-v1","input":{"text":"awful terrible"}}]}'
+```
+
+This runs two individual NumPy predictions. It does **not** claim parallelism,
+continuous GPU batching, or multi-worker scheduling.
 
 ## Run a pretrained language model through Ollama (optional)
 
