@@ -113,7 +113,6 @@ class TestAPIEndpoints(unittest.TestCase):
         })
         self.assertEqual(status, 400)
 
-
     def test_only_real_model_registered(self):
         status, body = self._get('/api/models')
         self.assertEqual(status, 200)
