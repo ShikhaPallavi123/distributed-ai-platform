@@ -104,6 +104,7 @@ class AppState:
         }
         self.start_time = time.time()
         self._latencies: list[float] = []
+        self._completed_events: list[tuple[float, float]] = []  # (wall time, latency in ms)
         self._init_demo_data()
 
     def _init_demo_data(self):
@@ -121,10 +122,55 @@ class AppState:
         self.metrics["models_loaded"] = 1
 
     def record_latency(self, latency_ms: float):
+        """Record the latency of an *executed*, successful model request."""
         self._latencies.append(latency_ms)
         if len(self._latencies) > 10000:
             self._latencies = self._latencies[-5000:]
+        self._completed_events.append((time.time(), latency_ms))
+        if len(self._completed_events) > 10000:
+            self._completed_events = self._completed_events[-5000:]
         self.metrics["avg_latency_ms"] = sum(self._latencies) / len(self._latencies)
+
+    def requests_per_second(self, window_seconds: int = 60) -> float:
+        """Measured throughput, averaged over up to the last 60 seconds."""
+        now = time.time()
+        recent = sum(
+            1 for timestamp, _ in self._completed_events
+            if now - window_seconds < timestamp <= now
+        )
+        elapsed = min(window_seconds, max(1.0, now - self.start_time))
+        return round(recent / elapsed, 3)
+
+    def get_latency_history(self, window_seconds: int = 60) -> list[dict]:
+        """Return measured latency percentiles for seconds with observations."""
+        import numpy as np
+        now = time.time()
+        buckets: dict[int, list[float]] = {}
+        for timestamp, latency in self._completed_events:
+            if now - window_seconds < timestamp <= now:
+                buckets.setdefault(int(timestamp), []).append(latency)
+        return [
+            {
+                "timestamp": second,
+                "p50": round(float(np.percentile(values, 50)), 3),
+                "p95": round(float(np.percentile(values, 95)), 3),
+                "p99": round(float(np.percentile(values, 99)), 3),
+            }
+            for second, values in sorted(buckets.items())
+        ]
+
+    def get_throughput_history(self, window_seconds: int = 60) -> list[dict]:
+        """Actual successful requests per second; never generated randomly."""
+        now = time.time()
+        counts: dict[int, int] = {}
+        for timestamp, _ in self._completed_events:
+            if now - window_seconds < timestamp <= now:
+                second = int(timestamp)
+                counts[second] = counts.get(second, 0) + 1
+        return [
+            {"timestamp": second, "requests_per_second": count}
+            for second, count in sorted(counts.items())
+        ]
 
     def get_percentiles(self):
         if not self._latencies:
@@ -322,37 +368,14 @@ class APIHandler(BaseHTTPRequestHandler):
         state.metrics["uptime_seconds"] = time.time() - state.start_time
         state.metrics["active_workers"] = len([w for w in state.workers.values() if w.status == "healthy"])
         state.metrics["models_loaded"] = len([m for m in state.models.values() if m.status == "loaded"])
-        # Until actual rate measurement is implemented, do not invent throughput.
-        state.metrics["requests_per_second"] = 0.0
+        state.metrics["requests_per_second"] = state.requests_per_second()
         self._send_json({**state.metrics, "percentiles": state.get_percentiles()})
 
     def _get_latency_history(self):
-        import random
-        # Generate realistic latency time series
-        now = time.time()
-        points = []
-        for i in range(60):
-            ts = now - (59 - i) * 60
-            points.append({
-                "timestamp": ts,
-                "p50": round(random.gauss(12, 2), 1),
-                "p95": round(random.gauss(28, 5), 1),
-                "p99": round(random.gauss(55, 10), 1),
-            })
-        self._send_json({"history": points})
+        self._send_json({"history": state.get_latency_history(), "source": "measured"})
 
     def _get_throughput(self):
-        import random
-        now = time.time()
-        points = []
-        for i in range(60):
-            ts = now - (59 - i) * 60
-            points.append({
-                "timestamp": ts,
-                "requests_per_second": round(random.gauss(250, 40), 0),
-                "tokens_per_second": round(random.gauss(15000, 3000), 0),
-            })
-        self._send_json({"history": points})
+        self._send_json({"history": state.get_throughput_history(), "source": "measured"})
 
     def _run_inference(self):
         try:
