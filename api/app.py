@@ -14,6 +14,7 @@ from typing import Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import traceback
+import hmac
 from inference.demo_sentiment import DemoSentimentModel
 from inference.ollama_adapter import OllamaAdapter, OllamaBackendError
 
@@ -229,6 +230,17 @@ class APIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
 
+    def _require_admin(self) -> bool:
+        """Protect administrative metadata writes until user auth exists."""
+        token = os.environ.get("NEUROFLUX_ADMIN_TOKEN", "")
+        provided = self.headers.get("Authorization", "")
+        if not token or not hmac.compare_digest(provided, "Bearer " + token):
+            self._send_json({
+                "error": "Admin changes are disabled without a valid NEUROFLUX_ADMIN_TOKEN",
+            }, 403)
+            return False
+        return True
+
     def _read_body(self) -> dict:
         length = int(self.headers.get("Content-Length", 0))
         if length == 0:
@@ -316,6 +328,8 @@ class APIHandler(BaseHTTPRequestHandler):
 
         handler = routes.get(path)
         if handler:
+            if path in ("/api/models", "/api/workers") and not self._require_admin():
+                return
             handler()
         else:
             self._send_json({"error": "Not found"}, 404)
@@ -324,6 +338,8 @@ class APIHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         if path.startswith("/api/models/"):
+            if not self._require_admin():
+                return
             name = path.split("/")[-1]
             if name in state.models:
                 del state.models[name]
@@ -518,6 +534,7 @@ class APIHandler(BaseHTTPRequestHandler):
             input_shape=body.get("input_shape", []),
             output_shape=body.get("output_shape", []),
             parameters=body.get("parameters", 0),
+            status="registered",
         )
         state.models[model.name] = model
         self._send_json({"status": "registered", "model": asdict(model)}, 201)
@@ -528,28 +545,18 @@ class APIHandler(BaseHTTPRequestHandler):
             worker_id=body.get("worker_id", f"worker-{uuid.uuid4().hex[:8]}"),
             host=body.get("host", "0.0.0.0"),
             port=body.get("port", 8080),
+            status="unverified",
+            gpu_memory_total=0.0,
         )
         state.workers[worker.worker_id] = worker
         self._send_json({"status": "registered", "worker": asdict(worker)}, 201)
 
     def _run_agent(self):
-        body = self._read_body()
-        task = AgentTask(
-            task_id=str(uuid.uuid4()),
-            goal=body.get("goal", ""),
-            agent_type=body.get("agent_type", "react"),
-        )
-        task.status = "running"
-        task.steps = [
-            {"step": 1, "type": "think", "content": f"Analyzing goal: {task.goal}"},
-            {"step": 2, "type": "plan", "content": "Decomposing into sub-tasks"},
-            {"step": 3, "type": "act", "content": "Executing primary action"},
-            {"step": 4, "type": "observe", "content": "Evaluating results"},
-        ]
-        task.status = "completed"
-        task.result = {"outcome": "Goal achieved", "confidence": 0.92}
-        state.agent_tasks[task.task_id] = task
-        self._send_json(asdict(task), 201)
+        """Do not report synthetic agent steps as successful execution."""
+        self._send_json({
+            "error": "Agent execution has not been connected to a real backend.",
+            "code": "AGENT_NOT_DEPLOYED",
+        }, 501)
 
     def _list_agents(self):
         self._send_json({"tasks": [asdict(t) for t in state.agent_tasks.values()]})
