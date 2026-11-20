@@ -2,7 +2,7 @@
 
 > A production-grade, full-stack distributed AI inference engine built **entirely from scratch** — from OS-level memory allocators to agentic AI orchestration. Zero ML framework dependencies. Pure Python + NumPy.
 
-[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-NeuroFlux_Dashboard-00d4aa?style=for-the-badge)](https://shikhapallavi123.github.io/distributed-ai-platform/)
+> **Development status (November 2026):** The public GitHub Pages site is a **static demo with illustrative data**, not a live GPU cluster. The backend currently serves a small real NumPy sentiment classifier and optionally connects to a locally configured Ollama pretrained language model. Distributed scheduling, live GPU measurements, and production readiness are not yet validated. See [Real Inference MVP](docs/REAL_INFERENCE_MVP.md) for exact working features, setup, limitations and testing.\n\n[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-NeuroFlux_Dashboard-00d4aa?style=for-the-badge)](https://shikhapallavi123.github.io/distributed-ai-platform/)
 
 [![CI/CD](https://github.com/ShikhaPallavi123/distributed-ai-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/ShikhaPallavi123/distributed-ai-platform/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)

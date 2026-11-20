@@ -55,6 +55,21 @@ jobs:
         env:
           PYTHONPATH: .
 
+  frontend:
+    name: Frontend JavaScript Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate both dashboard scripts
+        run: |
+          node --check ui/static/js/app.js
+          node --check docs/static/js/app.js
+      - name: Ensure GitHub Pages and backend dashboards stay in sync
+        run: cmp ui/static/js/app.js docs/static/js/app.js
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest

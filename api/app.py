@@ -14,6 +14,9 @@ from typing import Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import traceback
+import hmac
+from inference.demo_sentiment import DemoSentimentModel
+from inference.ollama_adapter import OllamaAdapter, OllamaBackendError
 
 
 # ---------------------------------------------------------------------------
@@ -102,40 +105,73 @@ class AppState:
         }
         self.start_time = time.time()
         self._latencies: list[float] = []
+        self._completed_events: list[tuple[float, float]] = []  # (wall time, latency in ms)
         self._init_demo_data()
 
     def _init_demo_data(self):
-        """Populate with demo data for the dashboard."""
-        demo_models = [
-            ModelInfo("gpt-neuroflux-7b", "1.0.0", "NeuroFlux", [1, 512], [1, 512, 32000], 7_000_000_000, accuracy=0.847),
-            ModelInfo("resnet50-classifier", "2.1.0", "NeuroFlux", [1, 3, 224, 224], [1, 1000], 25_557_032, accuracy=0.761),
-            ModelInfo("bert-sentiment", "1.2.0", "NeuroFlux", [1, 128], [1, 3], 110_000_000, accuracy=0.923),
-            ModelInfo("vae-imagegen", "0.9.0", "NeuroFlux", [1, 100], [1, 3, 64, 64], 15_200_000, accuracy=0.0),
-            ModelInfo("agent-planner-v2", "2.0.0", "NeuroFlux", [1, 1024], [1, 256], 350_000_000, accuracy=0.891),
-        ]
-        for m in demo_models:
-            self.models[m.name] = m
-
-        demo_workers = [
-            WorkerInfo("worker-gpu-0", "10.0.1.10", 8080, "healthy", 24.0, 8.2, 15420, 12.3, ["gpt-neuroflux-7b", "bert-sentiment"]),
-            WorkerInfo("worker-gpu-1", "10.0.1.11", 8080, "healthy", 24.0, 14.7, 12850, 15.1, ["gpt-neuroflux-7b", "resnet50-classifier"]),
-            WorkerInfo("worker-gpu-2", "10.0.1.12", 8080, "healthy", 16.0, 5.1, 18200, 9.8, ["resnet50-classifier", "bert-sentiment", "vae-imagegen"]),
-            WorkerInfo("worker-gpu-3", "10.0.1.13", 8080, "busy", 16.0, 15.2, 9340, 18.5, ["gpt-neuroflux-7b"]),
-            WorkerInfo("worker-cpu-0", "10.0.2.10", 8080, "healthy", 0.0, 0.0, 5120, 45.2, ["bert-sentiment"]),
-            WorkerInfo("worker-gpu-4", "10.0.1.14", 8080, "draining", 24.0, 2.0, 22100, 11.0, ["agent-planner-v2"]),
-        ]
-        for w in demo_workers:
-            self.workers[w.worker_id] = w
-
-        self.metrics["active_workers"] = len([w for w in self.workers.values() if w.status == "healthy"])
-        self.metrics["models_loaded"] = len(self.models)
-        self.metrics["total_requests"] = sum(w.tasks_completed for w in self.workers.values())
+        """Register the only executable model and its real local CPU worker."""
+        self.models["demo-sentiment-v1"] = ModelInfo(
+            "demo-sentiment-v1", "1.0.0", "NumPy", [1], [2],
+            0, accuracy=0.0, status="loaded",
+        )
+        self.workers["local-cpu"] = WorkerInfo(
+            worker_id="local-cpu", host="127.0.0.1", port=8080,
+            status="healthy", gpu_memory_total=0.0, gpu_memory_used=0.0,
+            models_loaded=["demo-sentiment-v1"],
+        )
+        self.metrics["active_workers"] = 1
+        self.metrics["models_loaded"] = 1
 
     def record_latency(self, latency_ms: float):
+        """Record the latency of an *executed*, successful model request."""
         self._latencies.append(latency_ms)
         if len(self._latencies) > 10000:
             self._latencies = self._latencies[-5000:]
+        self._completed_events.append((time.time(), latency_ms))
+        if len(self._completed_events) > 10000:
+            self._completed_events = self._completed_events[-5000:]
         self.metrics["avg_latency_ms"] = sum(self._latencies) / len(self._latencies)
+
+    def requests_per_second(self, window_seconds: int = 60) -> float:
+        """Measured throughput, averaged over up to the last 60 seconds."""
+        now = time.time()
+        recent = sum(
+            1 for timestamp, _ in self._completed_events
+            if now - window_seconds < timestamp <= now
+        )
+        elapsed = min(window_seconds, max(1.0, now - self.start_time))
+        return round(recent / elapsed, 3)
+
+    def get_latency_history(self, window_seconds: int = 60) -> list[dict]:
+        """Return measured latency percentiles for seconds with observations."""
+        import numpy as np
+        now = time.time()
+        buckets: dict[int, list[float]] = {}
+        for timestamp, latency in self._completed_events:
+            if now - window_seconds < timestamp <= now:
+                buckets.setdefault(int(timestamp), []).append(latency)
+        return [
+            {
+                "timestamp": second,
+                "p50": round(float(np.percentile(values, 50)), 3),
+                "p95": round(float(np.percentile(values, 95)), 3),
+                "p99": round(float(np.percentile(values, 99)), 3),
+            }
+            for second, values in sorted(buckets.items())
+        ]
+
+    def get_throughput_history(self, window_seconds: int = 60) -> list[dict]:
+        """Actual successful requests per second; never generated randomly."""
+        now = time.time()
+        counts: dict[int, int] = {}
+        for timestamp, _ in self._completed_events:
+            if now - window_seconds < timestamp <= now:
+                second = int(timestamp)
+                counts[second] = counts.get(second, 0) + 1
+        return [
+            {"timestamp": second, "requests_per_second": count}
+            for second, count in sorted(counts.items())
+        ]
 
     def get_percentiles(self):
         if not self._latencies:
@@ -150,6 +186,28 @@ class AppState:
 
 
 state = AppState()
+
+# Real trained model; optional external language model (no fake model registrations).
+sentiment_model = DemoSentimentModel()
+_ollama_model = os.environ.get("NEUROFLUX_OLLAMA_MODEL", "").strip()
+ollama_client = (
+    OllamaAdapter(
+        _ollama_model,
+        base_url=os.environ.get("NEUROFLUX_OLLAMA_URL", "http://127.0.0.1:11434"),
+    )
+    if _ollama_model else None
+)
+if ollama_client:
+    state.models["ollama-local"] = ModelInfo(
+        "ollama-local", "1.0.0", "Ollama", [1], [1], 0,
+        status="configured",
+    )
+    state.workers["ollama-backend"] = WorkerInfo(
+        worker_id="ollama-backend", host="configured-ollama",
+        port=11434, status="configured",
+        gpu_memory_total=0.0, gpu_memory_used=0.0,
+        models_loaded=["ollama-local"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +229,17 @@ class APIHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
+
+    def _require_admin(self) -> bool:
+        """Protect administrative metadata writes until user auth exists."""
+        token = os.environ.get("NEUROFLUX_ADMIN_TOKEN", "")
+        provided = self.headers.get("Authorization", "")
+        if not token or not hmac.compare_digest(provided, "Bearer " + token):
+            self._send_json({
+                "error": "Admin changes are disabled without a valid NEUROFLUX_ADMIN_TOKEN",
+            }, 403)
+            return False
+        return True
 
     def _read_body(self) -> dict:
         length = int(self.headers.get("Content-Length", 0))
@@ -259,6 +328,8 @@ class APIHandler(BaseHTTPRequestHandler):
 
         handler = routes.get(path)
         if handler:
+            if path in ("/api/models", "/api/workers") and not self._require_admin():
+                return
             handler()
         else:
             self._send_json({"error": "Not found"}, 404)
@@ -267,6 +338,8 @@ class APIHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         if path.startswith("/api/models/"):
+            if not self._require_admin():
+                return
             name = path.split("/")[-1]
             if name in state.models:
                 del state.models[name]
@@ -290,7 +363,7 @@ class APIHandler(BaseHTTPRequestHandler):
         })
 
     def _list_models(self):
-        self._send_json({"models": [asdict(m) for m in state.models.values()]})
+        self._send_json({"models": [{"id": m.name, **asdict(m)} for m in state.models.values()]})
 
     def _get_model(self, name: str):
         if name in state.models:
@@ -299,7 +372,7 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send_json({"error": f"Model '{name}' not found"}, 404)
 
     def _list_workers(self):
-        self._send_json({"workers": [asdict(w) for w in state.workers.values()]})
+        self._send_json({"workers": [{"id": w.worker_id, "gpu_type": "CPU" if not w.gpu_memory_total else "Unknown", "current_load": 0, **asdict(w)} for w in state.workers.values()]})
 
     def _get_worker(self, wid: str):
         if wid in state.workers:
@@ -308,40 +381,17 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send_json({"error": f"Worker '{wid}' not found"}, 404)
 
     def _get_metrics(self):
-        import random
         state.metrics["uptime_seconds"] = time.time() - state.start_time
         state.metrics["active_workers"] = len([w for w in state.workers.values() if w.status == "healthy"])
-        state.metrics["models_loaded"] = len(state.models)
-        state.metrics["requests_per_second"] = round(random.uniform(120, 350), 1)
+        state.metrics["models_loaded"] = len([m for m in state.models.values() if m.status == "loaded"])
+        state.metrics["requests_per_second"] = state.requests_per_second()
         self._send_json({**state.metrics, "percentiles": state.get_percentiles()})
 
     def _get_latency_history(self):
-        import random
-        # Generate realistic latency time series
-        now = time.time()
-        points = []
-        for i in range(60):
-            ts = now - (59 - i) * 60
-            points.append({
-                "timestamp": ts,
-                "p50": round(random.gauss(12, 2), 1),
-                "p95": round(random.gauss(28, 5), 1),
-                "p99": round(random.gauss(55, 10), 1),
-            })
-        self._send_json({"history": points})
+        self._send_json({"history": state.get_latency_history(), "source": "measured"})
 
     def _get_throughput(self):
-        import random
-        now = time.time()
-        points = []
-        for i in range(60):
-            ts = now - (59 - i) * 60
-            points.append({
-                "timestamp": ts,
-                "requests_per_second": round(random.gauss(250, 40), 0),
-                "tokens_per_second": round(random.gauss(15000, 3000), 0),
-            })
-        self._send_json({"history": points})
+        self._send_json({"history": state.get_throughput_history(), "source": "measured"})
 
     def _run_inference(self):
         try:
@@ -355,46 +405,125 @@ class APIHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": f"Model '{req.model}' not found"}, 404)
                 return
 
-            start = time.time()
-            import random
-            time.sleep(random.uniform(0.005, 0.02))  # Simulate inference
-            latency = (time.time() - start) * 1000
+            start = time.perf_counter()
+            text_input = req.input_data.get("text") if isinstance(req.input_data, dict) else req.input_data
 
-            workers = [w for w in state.workers.values() if w.status == "healthy" and req.model in w.models_loaded]
-            worker = min(workers, key=lambda w: w.gpu_memory_used) if workers else list(state.workers.values())[0]
+            if req.model == "demo-sentiment-v1":
+                worker_id = "local-cpu"
+                try:
+                    prediction = sentiment_model.predict(text_input)
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
+                    return
+            elif req.model == "ollama-local" and ollama_client is not None:
+                worker_id = "ollama-backend"
+                try:
+                    prediction = ollama_client.generate(text_input)
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
+                    return
+                except OllamaBackendError as exc:
+                    state.metrics["total_errors"] += 1
+                    self._send_json({"error": str(exc), "code": "MODEL_UNAVAILABLE"}, 503)
+                    return
+            else:
+                self._send_json({
+                    "error": "No executable backend is configured for this model.",
+                    "code": "MODEL_NOT_DEPLOYED",
+                    "model": req.model,
+                }, 503)
+                return
 
-            worker.tasks_completed += 1
+            latency = (time.perf_counter() - start) * 1000
             state.metrics["total_requests"] += 1
             state.record_latency(latency)
-
-            resp = InferenceResponse(
+            state.workers[worker_id].tasks_completed += 1
+            response = InferenceResponse(
                 request_id=req.request_id,
                 model=req.model,
-                output={"result": "Inference result for input", "confidence": round(random.uniform(0.85, 0.99), 3)},
+                output=prediction,
                 latency_ms=round(latency, 2),
-                worker_id=worker.worker_id,
+                worker_id=worker_id,
             )
-            state.requests[resp.request_id] = resp
-            self._send_json(asdict(resp))
-        except Exception as e:
+            state.requests[response.request_id] = response
+            self._send_json(asdict(response))
+
+        except Exception:
             state.metrics["total_errors"] += 1
-            self._send_json({"error": str(e), "traceback": traceback.format_exc()}, 500)
+            traceback.print_exc()
+            self._send_json({"error": "Internal inference error"}, 500)
 
     def _batch_inference(self):
-        body = self._read_body()
-        requests = body.get("requests", [])
-        results = []
-        for req_data in requests:
-            import random
-            results.append({
-                "request_id": str(uuid.uuid4()),
-                "model": req_data.get("model", "unknown"),
-                "output": {"result": "batch_result", "confidence": round(random.uniform(0.85, 0.99), 3)},
-                "latency_ms": round(random.uniform(5, 20), 2),
-                "status": "success",
+        """Execute a bounded batch using the real NumPy classifier.
+
+        The MVP runs items sequentially; this is *not* dynamic GPU batching.
+        Validate all inputs before recording metrics or returning success.
+        """
+        try:
+            body = self._read_body()
+            requests = body.get("requests")
+            if not isinstance(requests, list) or not 1 <= len(requests) <= 32:
+                self._send_json({"error": "requests must contain 1 to 32 items"}, 400)
+                return
+
+            validated = []
+            for item in requests:
+                if not isinstance(item, dict):
+                    self._send_json({"error": "Every request must be an object"}, 400)
+                    return
+                model_name = item.get("model")
+                if model_name not in state.models:
+                    self._send_json({"error": "Model not found: " + str(model_name)}, 404)
+                    return
+                if model_name != "demo-sentiment-v1":
+                    self._send_json({
+                        "error": "Batch execution is currently supported only for demo-sentiment-v1",
+                        "code": "BATCH_MODEL_UNSUPPORTED",
+                    }, 501)
+                    return
+                data = item.get("input")
+                text_input = data.get("text") if isinstance(data, dict) else data
+                if not isinstance(text_input, str):
+                    self._send_json({"error": "input.text must be a string"}, 400)
+                    return
+                validated.append(text_input)
+
+            total_start = time.perf_counter()
+            prepared = []
+            for text_input in validated:
+                start = time.perf_counter()
+                try:
+                    prediction = sentiment_model.predict(text_input)
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
+                    return
+                prepared.append((prediction, (time.perf_counter() - start) * 1000))
+
+            results = []
+            for prediction, latency in prepared:
+                req_id = str(uuid.uuid4())
+                response = InferenceResponse(
+                    request_id=req_id,
+                    model="demo-sentiment-v1",
+                    output=prediction,
+                    latency_ms=round(latency, 2),
+                    worker_id="local-cpu",
+                )
+                state.requests[req_id] = response
+                state.metrics["total_requests"] += 1
+                state.record_latency(latency)
+                state.workers["local-cpu"].tasks_completed += 1
+                results.append(asdict(response))
+            self._send_json({
+                "batch_size": len(results),
+                "results": results,
+                "total_latency_ms": round((time.perf_counter() - total_start) * 1000, 2),
+                "execution_mode": "sequential_cpu",
             })
-        state.metrics["total_requests"] += len(results)
-        self._send_json({"batch_size": len(results), "results": results})
+        except Exception:
+            state.metrics["total_errors"] += 1
+            traceback.print_exc()
+            self._send_json({"error": "Internal batch inference error"}, 500)
 
     def _register_model(self):
         body = self._read_body()
@@ -405,6 +534,7 @@ class APIHandler(BaseHTTPRequestHandler):
             input_shape=body.get("input_shape", []),
             output_shape=body.get("output_shape", []),
             parameters=body.get("parameters", 0),
+            status="registered",
         )
         state.models[model.name] = model
         self._send_json({"status": "registered", "model": asdict(model)}, 201)
@@ -415,28 +545,18 @@ class APIHandler(BaseHTTPRequestHandler):
             worker_id=body.get("worker_id", f"worker-{uuid.uuid4().hex[:8]}"),
             host=body.get("host", "0.0.0.0"),
             port=body.get("port", 8080),
+            status="unverified",
+            gpu_memory_total=0.0,
         )
         state.workers[worker.worker_id] = worker
         self._send_json({"status": "registered", "worker": asdict(worker)}, 201)
 
     def _run_agent(self):
-        body = self._read_body()
-        task = AgentTask(
-            task_id=str(uuid.uuid4()),
-            goal=body.get("goal", ""),
-            agent_type=body.get("agent_type", "react"),
-        )
-        task.status = "running"
-        task.steps = [
-            {"step": 1, "type": "think", "content": f"Analyzing goal: {task.goal}"},
-            {"step": 2, "type": "plan", "content": "Decomposing into sub-tasks"},
-            {"step": 3, "type": "act", "content": "Executing primary action"},
-            {"step": 4, "type": "observe", "content": "Evaluating results"},
-        ]
-        task.status = "completed"
-        task.result = {"outcome": "Goal achieved", "confidence": 0.92}
-        state.agent_tasks[task.task_id] = task
-        self._send_json(asdict(task), 201)
+        """Do not report synthetic agent steps as successful execution."""
+        self._send_json({
+            "error": "Agent execution has not been connected to a real backend.",
+            "code": "AGENT_NOT_DEPLOYED",
+        }, 501)
 
     def _list_agents(self):
         self._send_json({"tasks": [asdict(t) for t in state.agent_tasks.values()]})

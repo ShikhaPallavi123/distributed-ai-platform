@@ -9,6 +9,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from api.app import AppState, create_server  # noqa: E402
+from unittest import mock  # noqa: E402
+import api.app as api_module  # noqa: E402
 
 
 class TestAppState(unittest.TestCase):
@@ -59,11 +61,13 @@ class TestAPIEndpoints(unittest.TestCase):
         conn.close()
         return resp.status, body
 
-    def _post(self, path, data):
+    def _post(self, path, data, headers=None):
         if not self.available:
             self.skipTest("Server not available")
         conn = HTTPConnection('127.0.0.1', self.port, timeout=5)
-        conn.request('POST', path, json.dumps(data), {'Content-Type': 'application/json'})
+        request_headers = {'Content-Type': 'application/json'}
+        request_headers.update(headers or {})
+        conn.request('POST', path, json.dumps(data), request_headers)
         resp = conn.getresponse()
         body = json.loads(resp.read().decode())
         conn.close()
@@ -93,8 +97,108 @@ class TestAPIEndpoints(unittest.TestCase):
             'model': 'gpt-neuroflux-7b',
             'input': {'text': 'Hello world'}
         })
+        self.assertEqual(status, 404)
+        self.assertIn('not found', body['error'])
+
+    def test_real_sentiment_inference(self):
+        status, body = self._post('/api/inference', {
+            'model': 'demo-sentiment-v1',
+            'input': {'text': 'excellent wonderful great'}
+        })
         self.assertEqual(status, 200)
-        self.assertIn('output', body)
+        self.assertEqual(body['output']['label'], 'positive')
+        self.assertEqual(body['output']['model_type'], 'trained_numpy_logistic_regression')
+
+    def test_sentiment_invalid_input(self):
+        status, body = self._post('/api/inference', {
+            'model': 'demo-sentiment-v1', 'input': {'text': ''}
+        })
+        self.assertEqual(status, 400)
+
+    def test_only_real_model_registered(self):
+        status, body = self._get('/api/models')
+        self.assertEqual(status, 200)
+        self.assertTrue(any(m['id'] == 'demo-sentiment-v1' for m in body['models']))
+        self.assertFalse(any(m['name'] == 'gpt-neuroflux-7b' for m in body['models']))
+
+    def test_ollama_model_api_with_mock_backend(self):
+        class FakeOllama:
+            def generate(self, prompt):
+                return {'text': 'A model answer to ' + prompt, 'model_type': 'ollama_pretrained_llm'}
+
+        api_module.state.models['ollama-local'] = api_module.ModelInfo(
+            'ollama-local', '1.0', 'Ollama', [1], [1], 0,
+        )
+        api_module.state.workers['ollama-backend'] = api_module.WorkerInfo(
+            'ollama-backend', 'localhost', 11434,
+        )
+        try:
+            with mock.patch.object(api_module, 'ollama_client', FakeOllama()):
+                status, body = self._post('/api/inference', {
+                    'model': 'ollama-local',
+                    'input': {'text': 'What is inference?'},
+                })
+            self.assertEqual(status, 200)
+            self.assertEqual(body['output']['text'], 'A model answer to What is inference?')
+        finally:
+            del api_module.state.models['ollama-local']
+            del api_module.state.workers['ollama-backend']
+
+    def test_batch_executes_real_sentiment_predictions(self):
+        start = api_module.state.metrics['total_requests']
+        status, body = self._post('/api/batch', {
+            'requests': [
+                {'model': 'demo-sentiment-v1', 'input': {'text': 'wonderful great'}},
+                {'model': 'demo-sentiment-v1', 'input': {'text': 'awful terrible'}},
+            ],
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual(body['batch_size'], 2)
+        self.assertEqual(body['execution_mode'], 'sequential_cpu')
+        self.assertEqual(body['results'][0]['output']['label'], 'positive')
+        self.assertEqual(body['results'][1]['output']['label'], 'negative')
+        self.assertEqual(api_module.state.metrics['total_requests'], start + 2)
+
+    def test_batch_rejects_invalid_inputs(self):
+        status, body = self._post('/api/batch', {'requests': []})
+        self.assertEqual(status, 400)
+        self.assertIn('1 to 32', body['error'])
+        status, body = self._post('/api/batch', {'requests': [
+            {'model': 'demo-sentiment-v1', 'input': {'text': ''}},
+        ]})
+        self.assertEqual(status, 400)
+
+    def test_batch_rejects_missing_model(self):
+        status, body = self._post('/api/batch', {'requests': [
+            {'model': 'not-a-model', 'input': {'text': 'hi'}},
+        ]})
+        self.assertEqual(status, 404)
+
+    def test_admin_registration_denied_without_token(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('NEUROFLUX_ADMIN_TOKEN', None)
+            status, body = self._post('/api/models', {'name': 'unauthorized'})
+        self.assertEqual(status, 403)
+        self.assertIn('NEUROFLUX_ADMIN_TOKEN', body['error'])
+        self.assertNotIn('unauthorized', api_module.state.models)
+
+    def test_admin_registration_metadata_only(self):
+        with mock.patch.dict(os.environ, {'NEUROFLUX_ADMIN_TOKEN': 'temporary-test-secret'}):
+            status, body = self._post(
+                '/api/models',
+                {'name': 'registered-only-test'},
+                headers={'Authorization': 'Bearer temporary-test-secret'},
+            )
+        try:
+            self.assertEqual(status, 201)
+            self.assertEqual(body['model']['status'], 'registered')
+        finally:
+            api_module.state.models.pop('registered-only-test', None)
+
+    def test_no_synthetic_agent_success(self):
+        status, body = self._post('/api/agents/run', {'goal': 'Test a tool'})
+        self.assertEqual(status, 501)
+        self.assertEqual(body['code'], 'AGENT_NOT_DEPLOYED')
 
 
 if __name__ == "__main__":
