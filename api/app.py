@@ -438,11 +438,76 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Internal inference error"}, 500)
 
     def _batch_inference(self):
-        # Batch execution must not claim results from unexecuted models.
-        self._send_json({
-            "error": "Batch inference is not implemented yet.",
-            "code": "BATCH_NOT_IMPLEMENTED",
-        }, 501)
+        """Execute a bounded batch using the real NumPy classifier.
+
+        The MVP runs items sequentially; this is *not* dynamic GPU batching.
+        Validate all inputs before recording metrics or returning success.
+        """
+        try:
+            body = self._read_body()
+            requests = body.get("requests")
+            if not isinstance(requests, list) or not 1 <= len(requests) <= 32:
+                self._send_json({"error": "requests must contain 1 to 32 items"}, 400)
+                return
+
+            validated = []
+            for item in requests:
+                if not isinstance(item, dict):
+                    self._send_json({"error": "Every request must be an object"}, 400)
+                    return
+                model_name = item.get("model")
+                if model_name not in state.models:
+                    self._send_json({"error": "Model not found: " + str(model_name)}, 404)
+                    return
+                if model_name != "demo-sentiment-v1":
+                    self._send_json({
+                        "error": "Batch execution is currently supported only for demo-sentiment-v1",
+                        "code": "BATCH_MODEL_UNSUPPORTED",
+                    }, 501)
+                    return
+                data = item.get("input")
+                text_input = data.get("text") if isinstance(data, dict) else data
+                if not isinstance(text_input, str):
+                    self._send_json({"error": "input.text must be a string"}, 400)
+                    return
+                validated.append(text_input)
+
+            total_start = time.perf_counter()
+            prepared = []
+            for text_input in validated:
+                start = time.perf_counter()
+                try:
+                    prediction = sentiment_model.predict(text_input)
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
+                    return
+                prepared.append((prediction, (time.perf_counter() - start) * 1000))
+
+            results = []
+            for prediction, latency in prepared:
+                req_id = str(uuid.uuid4())
+                response = InferenceResponse(
+                    request_id=req_id,
+                    model="demo-sentiment-v1",
+                    output=prediction,
+                    latency_ms=round(latency, 2),
+                    worker_id="local-cpu",
+                )
+                state.requests[req_id] = response
+                state.metrics["total_requests"] += 1
+                state.record_latency(latency)
+                state.workers["local-cpu"].tasks_completed += 1
+                results.append(asdict(response))
+            self._send_json({
+                "batch_size": len(results),
+                "results": results,
+                "total_latency_ms": round((time.perf_counter() - total_start) * 1000, 2),
+                "execution_mode": "sequential_cpu",
+            })
+        except Exception:
+            state.metrics["total_errors"] += 1
+            traceback.print_exc()
+            self._send_json({"error": "Internal batch inference error"}, 500)
 
     def _register_model(self):
         body = self._read_body()
