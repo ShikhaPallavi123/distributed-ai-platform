@@ -312,7 +312,8 @@ class APIHandler(BaseHTTPRequestHandler):
         state.metrics["uptime_seconds"] = time.time() - state.start_time
         state.metrics["active_workers"] = len([w for w in state.workers.values() if w.status == "healthy"])
         state.metrics["models_loaded"] = len(state.models)
-        state.metrics["requests_per_second"] = round(random.uniform(120, 350), 1)
+        # Until actual rate measurement is implemented, do not invent throughput.
+        state.metrics["requests_per_second"] = 0.0
         self._send_json({**state.metrics, "percentiles": state.get_percentiles()})
 
     def _get_latency_history(self):
@@ -356,9 +357,14 @@ class APIHandler(BaseHTTPRequestHandler):
                 return
 
             start = time.time()
-            import random
-            time.sleep(random.uniform(0.005, 0.02))  # Simulate inference
-            latency = (time.time() - start) * 1000
+            # Do not fabricate inference. A registered model's metadata is not
+            # evidence that executable model weights have been loaded.
+            self._send_json({
+                "error": "Model execution is not configured for this model.",
+                "code": "MODEL_NOT_DEPLOYED",
+                "model": req.model,
+            }, 503)
+            return
 
             workers = [w for w in state.workers.values() if w.status == "healthy" and req.model in w.models_loaded]
             worker = min(workers, key=lambda w: w.gpu_memory_used) if workers else list(state.workers.values())[0]
