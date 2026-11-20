@@ -16,9 +16,9 @@ server or execute GPU inference. The backend must be run separately.
 - `/api/batch`: genuinely executes 1–32 sentiment-classifier requests, sequentially on CPU, with measured outputs and latency. Other models return HTTP 501 until batch support is implemented for them.
 
 **Not yet production ready:** accounts, authentication, secure deployment,
-multiple remote GPU workers, model-upload safety, billing, quality evaluation,
-multi-model research routing, and production monitoring. Existing agent screens
-may contain demonstration behavior.
+multiple remote GPU workers, secure model uploads, billing, quality evaluation,
+multi-model research routing, and production monitoring. The agent execution
+endpoint currently returns HTTP 501 instead of fabricated success.
 
 ## Run the NumPy CPU model
 
@@ -79,6 +79,21 @@ HTTP 503. NeuroFlux does not install or download a model automatically.
 
 To use a custom Ollama server URL, set `NEUROFLUX_OLLAMA_URL` before starting
 NeuroFlux. Do not expose an unauthenticated NeuroFlux API to the public Internet.
+
+## Administrative API access
+
+Model and worker metadata registration, plus model deletion, are blocked by
+default. These operations require the server-side `NEUROFLUX_ADMIN_TOKEN` and
+an `Authorization: Bearer <token>` header. For example:
+
+```bash
+NEUROFLUX_ADMIN_TOKEN=replace-with-long-random-secret python3 -m api.app
+```
+
+Registering metadata does **not** load a model or verify a worker. Such entries
+are labeled `registered` or `unverified`. This is a temporary safeguard,
+not a substitute for authentication, authorization, quotas and rate limiting
+in a publicly hosted product.
 
 ## Validate
 
