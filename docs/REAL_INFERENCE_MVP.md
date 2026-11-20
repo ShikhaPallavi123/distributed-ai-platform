@@ -80,6 +80,22 @@ HTTP 503. NeuroFlux does not install or download a model automatically.
 To use a custom Ollama server URL, set `NEUROFLUX_OLLAMA_URL` before starting
 NeuroFlux. Do not expose an unauthenticated NeuroFlux API to the public Internet.
 
+## Benchmark a real pretrained language model
+
+With Ollama running and the named model already pulled:
+
+```bash
+python3 -m benchmarks.ollama_baseline --model gemma3:1b --repeats 3
+```
+
+This performs real model calls and reports observed mean, p50, p95 and p99
+end-to-end latency. Warmup requests are excluded from the measurement.
+You can also supply `--prompts-file prompts.txt` (one prompt per line).
+
+The benchmark does not evaluate answer accuracy, hallucinations, routing
+strategies, or GPU energy consumption. CI uses a fake adapter to test the
+benchmark calculations; no measured model performance is claimed from CI.
+
 ## Administrative API access
 
 Model and worker metadata registration, plus model deletion, are blocked by
