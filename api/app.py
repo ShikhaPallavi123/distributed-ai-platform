@@ -409,7 +409,7 @@ class APIHandler(BaseHTTPRequestHandler):
             state.requests[response.request_id] = response
             self._send_json(asdict(response))
 
-        except Exception as e:
+        except Exception:
             state.metrics["total_errors"] += 1
             traceback.print_exc()
             self._send_json({"error": "Internal inference error"}, 500)
