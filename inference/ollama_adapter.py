@@ -45,8 +45,8 @@ class OllamaAdapter:
                 result = json.load(response)
         except HTTPError as exc:
             raise OllamaBackendError(
-                "Ollama returned HTTP " + str(exc.code) +
-                "; verify the configured model has been downloaded"
+                "Ollama returned HTTP " + str(exc.code)
+                + "; verify the configured model has been downloaded"
             ) from exc
         except (URLError, TimeoutError, OSError) as exc:
             raise OllamaBackendError(
