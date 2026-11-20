@@ -115,6 +115,10 @@ class AppState:
         ]
         for m in demo_models:
             self.models[m.name] = m
+        self.models["demo-sentiment-v1"] = ModelInfo(
+            "demo-sentiment-v1", "1.0.0", "NumPy", [1], [2], 0,
+            accuracy=0.0, status="loaded",
+        )
 
         demo_workers = [
             WorkerInfo("worker-gpu-0", "10.0.1.10", 8080, "healthy", 24.0, 8.2, 15420, 12.3, ["gpt-neuroflux-7b", "bert-sentiment"]),
@@ -150,6 +154,10 @@ class AppState:
 
 
 state = AppState()
+
+# Real, locally trained inference model; other registry entries are demo metadata.
+from inference.demo_sentiment import DemoSentimentModel
+sentiment_model = DemoSentimentModel()
 
 
 # ---------------------------------------------------------------------------
@@ -357,13 +365,32 @@ class APIHandler(BaseHTTPRequestHandler):
                 return
 
             start = time.time()
-            # Do not fabricate inference. A registered model's metadata is not
-            # evidence that executable model weights have been loaded.
-            self._send_json({
-                "error": "Model execution is not configured for this model.",
-                "code": "MODEL_NOT_DEPLOYED",
-                "model": req.model,
-            }, 503)
+            if req.model != "demo-sentiment-v1":
+                self._send_json({
+                    "error": "Model execution is not configured for this model.",
+                    "code": "MODEL_NOT_DEPLOYED",
+                    "model": req.model,
+                }, 503)
+                return
+
+            text_input = req.input_data.get("text") if isinstance(req.input_data, dict) else req.input_data
+            try:
+                prediction = sentiment_model.predict(text_input)
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, 400)
+                return
+            latency = (time.perf_counter() - start) * 1000
+            state.metrics["total_requests"] += 1
+            state.record_latency(latency)
+            response = InferenceResponse(
+                request_id=req.request_id,
+                model=req.model,
+                output=prediction,
+                latency_ms=round(latency, 2),
+                worker_id="local-cpu",
+            )
+            state.requests[response.request_id] = response
+            self._send_json(asdict(response))
             return
 
             workers = [w for w in state.workers.values() if w.status == "healthy" and req.model in w.models_loaded]
