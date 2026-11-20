@@ -143,5 +143,36 @@ class TestAPIEndpoints(unittest.TestCase):
             del api_module.state.workers['ollama-backend']
 
 
+    def test_batch_executes_real_sentiment_predictions(self):
+        start = api_module.state.metrics['total_requests']
+        status, body = self._post('/api/batch', {
+            'requests': [
+                {'model': 'demo-sentiment-v1', 'input': {'text': 'wonderful great'}},
+                {'model': 'demo-sentiment-v1', 'input': {'text': 'awful terrible'}},
+            ],
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual(body['batch_size'], 2)
+        self.assertEqual(body['execution_mode'], 'sequential_cpu')
+        self.assertEqual(body['results'][0]['output']['label'], 'positive')
+        self.assertEqual(body['results'][1]['output']['label'], 'negative')
+        self.assertEqual(api_module.state.metrics['total_requests'], start + 2)
+
+    def test_batch_rejects_invalid_inputs(self):
+        status, body = self._post('/api/batch', {'requests': []})
+        self.assertEqual(status, 400)
+        self.assertIn('1 to 32', body['error'])
+        status, body = self._post('/api/batch', {'requests': [
+            {'model': 'demo-sentiment-v1', 'input': {'text': ''}},
+        ]})
+        self.assertEqual(status, 400)
+
+    def test_batch_rejects_missing_model(self):
+        status, body = self._post('/api/batch', {'requests': [
+            {'model': 'not-a-model', 'input': {'text': 'hi'}},
+        ]})
+        self.assertEqual(status, 404)
+
+
 if __name__ == "__main__":
     unittest.main()
