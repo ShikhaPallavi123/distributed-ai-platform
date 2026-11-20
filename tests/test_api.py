@@ -93,8 +93,23 @@ class TestAPIEndpoints(unittest.TestCase):
             'model': 'gpt-neuroflux-7b',
             'input': {'text': 'Hello world'}
         })
+        self.assertEqual(status, 503)
+        self.assertEqual(body['code'], 'MODEL_NOT_DEPLOYED')
+
+    def test_real_sentiment_inference(self):
+        status, body = self._post('/api/inference', {
+            'model': 'demo-sentiment-v1',
+            'input': {'text': 'excellent wonderful great'}
+        })
         self.assertEqual(status, 200)
-        self.assertIn('output', body)
+        self.assertEqual(body['output']['label'], 'positive')
+        self.assertEqual(body['output']['model_type'], 'trained_numpy_logistic_regression')
+
+    def test_sentiment_invalid_input(self):
+        status, body = self._post('/api/inference', {
+            'model': 'demo-sentiment-v1', 'input': {'text': ''}
+        })
+        self.assertEqual(status, 400)
 
 
 if __name__ == "__main__":
