@@ -142,7 +142,6 @@ class TestAPIEndpoints(unittest.TestCase):
             del api_module.state.models['ollama-local']
             del api_module.state.workers['ollama-backend']
 
-
     def test_batch_executes_real_sentiment_predictions(self):
         start = api_module.state.metrics['total_requests']
         status, body = self._post('/api/batch', {
