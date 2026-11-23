@@ -482,10 +482,10 @@ function renderTopology() {
               const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2;
               const x = cx + r * Math.cos(angle);
               const y = cy + r * Math.sin(angle);
-              return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(34,211,238,0.2)" stroke-width="1" stroke-dasharray="4"/>`;
+              return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(232,112,154,0.25)" stroke-width="1" stroke-dasharray="4"/>`;
             }).join('')}
             <!-- Center node -->
-            <circle cx="${cx}" cy="${cy}" r="30" fill="rgba(34,211,238,0.1)" stroke="var(--accent)" stroke-width="2"/>
+            <circle cx="${cx}" cy="${cy}" r="30" fill="rgba(232,112,154,0.1)" stroke="var(--accent)" stroke-width="2"/>
             <text x="${cx}" y="${cy + 4}" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">MASTER</text>
             <!-- Worker nodes -->
             ${nodes.map((n, i) => {
@@ -494,7 +494,7 @@ function renderTopology() {
               const y = cy + r * Math.sin(angle);
               const color = n.status === 'healthy' ? 'var(--green)' : n.status === 'busy' ? 'var(--amber)' : 'var(--red)';
               return `
-                <circle cx="${x}" cy="${y}" r="24" fill="rgba(17,24,39,0.9)" stroke="${color}" stroke-width="2"/>
+                <circle cx="${x}" cy="${y}" r="24" fill="rgba(255,255,255,0.9)" stroke="${color}" stroke-width="2"/>
                 <text x="${x}" y="${y - 4}" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">${n.id}</text>
                 <text x="${x}" y="${y + 10}" text-anchor="middle" fill="${color}" font-size="8">${n.status}</text>
               `;
@@ -673,7 +673,7 @@ function drawChart(canvasId, data, color, label) {
   const plotH = h - pad.top - pad.bottom;
 
   if (!data || data.length === 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillStyle = 'rgba(61,42,51,0.4)';
     ctx.font = '12px Inter';
     ctx.textAlign = 'center';
     ctx.fillText('No measured data yet', rect.width / 2, rect.height / 2);
@@ -683,7 +683,7 @@ function drawChart(canvasId, data, color, label) {
   const min = 0;
 
   // Grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.strokeStyle = 'rgba(245,208,216,0.6)';
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = pad.top + (plotH / 4) * i;
@@ -691,7 +691,7 @@ function drawChart(canvasId, data, color, label) {
     ctx.moveTo(pad.left, y);
     ctx.lineTo(w - pad.right, y);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillStyle = 'rgba(61,42,51,0.45)';
     ctx.font = '10px Inter';
     ctx.textAlign = 'right';
     ctx.fillText(Math.round(max - (max / 4) * i), pad.left - 8, y + 4);
@@ -722,7 +722,7 @@ function drawChart(canvasId, data, color, label) {
   ctx.fill();
 
   // Label
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillStyle = 'rgba(61,42,51,0.45)';
   ctx.font = '10px Inter';
   ctx.textAlign = 'center';
   ctx.fillText(label, w / 2, h - 4);
@@ -755,8 +755,8 @@ function fmtParams(p) {
 function afterRender() {
   if (state.page === 'dashboard') {
     setTimeout(() => {
-      drawChart('latencyChart', (state.latency.history || []).map(p => p.p95), 'rgb(34, 211, 238)', 'Latency (ms)');
-      drawChart('throughputChart', (state.throughput.history || []).map(p => p.requests_per_second), 'rgb(167, 139, 250)', 'Throughput (req/s)');
+      drawChart('latencyChart', (state.latency.history || []).map(p => p.p95), 'rgb(232, 112, 154)', 'Latency (ms)');
+      drawChart('throughputChart', (state.throughput.history || []).map(p => p.requests_per_second), 'rgb(180, 142, 210)', 'Throughput (req/s)');
     }, 50);
   }
 }
