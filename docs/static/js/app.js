@@ -109,7 +109,7 @@ function renderDashboard() {
   const gpuPct = totalGPU ? Math.round((usedGPU / totalGPU) * 100) : 0;
 
   return `
-    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#fce8ef; color:#b85a7a; border-radius:8px;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
+    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#f7eff2; color:#9b6b7a; border:1px solid #e8dce1; border-radius:8px;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Dashboard</h1>
     <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Real-time inference engine monitoring</p>
 
@@ -482,10 +482,10 @@ function renderTopology() {
               const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2;
               const x = cx + r * Math.cos(angle);
               const y = cy + r * Math.sin(angle);
-              return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(232,112,154,0.25)" stroke-width="1" stroke-dasharray="4"/>`;
+              return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(196,86,122,0.2)" stroke-width="1" stroke-dasharray="4"/>`;
             }).join('')}
             <!-- Center node -->
-            <circle cx="${cx}" cy="${cy}" r="30" fill="rgba(232,112,154,0.1)" stroke="var(--accent)" stroke-width="2"/>
+            <circle cx="${cx}" cy="${cy}" r="30" fill="rgba(196,86,122,0.08)" stroke="var(--accent)" stroke-width="2"/>
             <text x="${cx}" y="${cy + 4}" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">MASTER</text>
             <!-- Worker nodes -->
             ${nodes.map((n, i) => {
@@ -519,7 +519,7 @@ function renderTerminal() {
           <div class="terminal-line"><span class="terminal-output">─────────────────────────────────</span></div>
           ${state.terminalLines.map(l => `<div class="terminal-line">${l}</div>`).join('')}
         </div>
-        <div style="display:flex; border-top:1px solid var(--border); background:#2d1f25;">
+        <div style="display:flex; border-top:1px solid var(--border); background:#2a2024;">
           <span style="padding:10px 12px; color:var(--accent); font-family:var(--mono); font-size:12px;">apicalai&gt;</span>
           <input id="term-input" type="text" placeholder="Enter command..."
             style="flex:1; padding:10px 0; background:transparent; border:none; color:var(--text); font-family:var(--mono); font-size:12px; outline:none;"
@@ -673,7 +673,7 @@ function drawChart(canvasId, data, color, label) {
   const plotH = h - pad.top - pad.bottom;
 
   if (!data || data.length === 0) {
-    ctx.fillStyle = 'rgba(61,42,51,0.4)';
+    ctx.fillStyle = 'rgba(44,31,38,0.3)';
     ctx.font = '12px Inter';
     ctx.textAlign = 'center';
     ctx.fillText('No measured data yet', rect.width / 2, rect.height / 2);
@@ -683,7 +683,7 @@ function drawChart(canvasId, data, color, label) {
   const min = 0;
 
   // Grid
-  ctx.strokeStyle = 'rgba(245,208,216,0.6)';
+  ctx.strokeStyle = 'rgba(232,220,225,0.8)';
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = pad.top + (plotH / 4) * i;
@@ -691,7 +691,7 @@ function drawChart(canvasId, data, color, label) {
     ctx.moveTo(pad.left, y);
     ctx.lineTo(w - pad.right, y);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(61,42,51,0.45)';
+    ctx.fillStyle = 'rgba(44,31,38,0.35)';
     ctx.font = '10px Inter';
     ctx.textAlign = 'right';
     ctx.fillText(Math.round(max - (max / 4) * i), pad.left - 8, y + 4);
@@ -722,7 +722,7 @@ function drawChart(canvasId, data, color, label) {
   ctx.fill();
 
   // Label
-  ctx.fillStyle = 'rgba(61,42,51,0.45)';
+  ctx.fillStyle = 'rgba(44,31,38,0.35)';
   ctx.font = '10px Inter';
   ctx.textAlign = 'center';
   ctx.fillText(label, w / 2, h - 4);
@@ -755,8 +755,8 @@ function fmtParams(p) {
 function afterRender() {
   if (state.page === 'dashboard') {
     setTimeout(() => {
-      drawChart('latencyChart', (state.latency.history || []).map(p => p.p95), 'rgb(232, 112, 154)', 'Latency (ms)');
-      drawChart('throughputChart', (state.throughput.history || []).map(p => p.requests_per_second), 'rgb(180, 142, 210)', 'Throughput (req/s)');
+      drawChart('latencyChart', (state.latency.history || []).map(p => p.p95), 'rgb(196, 86, 122)', 'Latency (ms)');
+      drawChart('throughputChart', (state.throughput.history || []).map(p => p.requests_per_second), 'rgb(155, 123, 184)', 'Throughput (req/s)');
     }, 50);
   }
 }
