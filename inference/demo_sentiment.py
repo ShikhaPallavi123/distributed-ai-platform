@@ -1,4 +1,4 @@
-"""Small, genuinely trained NumPy text classifier for the NeuroFlux MVP.
+"""Small, genuinely trained NumPy text classifier for the ApicalAI MVP.
 
 This is a demonstration classifier, NOT a general-purpose language model.
 It learns weights from labeled examples at startup and predicts sentiment.

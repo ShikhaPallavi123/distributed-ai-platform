@@ -1,4 +1,4 @@
-# NeuroFlux — real inference MVP
+# ApicalAI — real inference MVP
 
 This page separates **running features** from planned features. The public
 GitHub Pages dashboard is a **static preview**; it does not host a Python
@@ -59,10 +59,10 @@ continuous GPU batching, or multi-worker scheduling.
 ollama pull gemma3:1b
 ```
 
-3. Start NeuroFlux with the model name set:
+3. Start ApicalAI with the model name set:
 
 ```bash
-NEUROFLUX_OLLAMA_MODEL=gemma3:1b python3 -m api.app
+APICALAI_OLLAMA_MODEL=gemma3:1b python3 -m api.app
 ```
 
 4. In another terminal, send an inference request:
@@ -75,10 +75,10 @@ curl -s http://localhost:8080/api/inference \
 
 A text response is returned from **the configured Ollama model**, not the
 built-in NumPy classifier. If Ollama or the model is unavailable, the API returns
-HTTP 503. NeuroFlux does not install or download a model automatically.
+HTTP 503. ApicalAI does not install or download a model automatically.
 
-To use a custom Ollama server URL, set `NEUROFLUX_OLLAMA_URL` before starting
-NeuroFlux. Do not expose an unauthenticated NeuroFlux API to the public Internet.
+To use a custom Ollama server URL, set `APICALAI_OLLAMA_URL` before starting
+ApicalAI. Do not expose an unauthenticated ApicalAI API to the public Internet.
 
 ## Benchmark a real pretrained language model
 
@@ -99,11 +99,11 @@ benchmark calculations; no measured model performance is claimed from CI.
 ## Administrative API access
 
 Model and worker metadata registration, plus model deletion, are blocked by
-default. These operations require the server-side `NEUROFLUX_ADMIN_TOKEN` and
+default. These operations require the server-side `APICALAI_ADMIN_TOKEN` and
 an `Authorization: Bearer <token>` header. For example:
 
 ```bash
-NEUROFLUX_ADMIN_TOKEN=replace-with-long-random-secret python3 -m api.app
+APICALAI_ADMIN_TOKEN=replace-with-long-random-secret python3 -m api.app
 ```
 
 Registering metadata does **not** load a model or verify a worker. Such entries

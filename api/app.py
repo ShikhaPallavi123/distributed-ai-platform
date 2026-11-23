@@ -1,5 +1,5 @@
 """
-NeuroFlux API — FastAPI application for the Distributed AI Inference Engine.
+ApicalAI API — FastAPI application for the Distributed AI Inference Engine.
 
 Provides REST endpoints for inference, model management, worker monitoring,
 agentic AI orchestration, and system metrics.
@@ -189,11 +189,11 @@ state = AppState()
 
 # Real trained model; optional external language model (no fake model registrations).
 sentiment_model = DemoSentimentModel()
-_ollama_model = os.environ.get("NEUROFLUX_OLLAMA_MODEL", "").strip()
+_ollama_model = os.environ.get("APICALAI_OLLAMA_MODEL", "").strip()
 ollama_client = (
     OllamaAdapter(
         _ollama_model,
-        base_url=os.environ.get("NEUROFLUX_OLLAMA_URL", "http://127.0.0.1:11434"),
+        base_url=os.environ.get("APICALAI_OLLAMA_URL", "http://127.0.0.1:11434"),
     )
     if _ollama_model else None
 )
@@ -216,7 +216,7 @@ if ollama_client:
 
 
 class APIHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for the NeuroFlux API."""
+    """HTTP request handler for the ApicalAI API."""
 
     def log_message(self, format, *args):
         pass  # Suppress default logging
@@ -232,11 +232,11 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def _require_admin(self) -> bool:
         """Protect administrative metadata writes until user auth exists."""
-        token = os.environ.get("NEUROFLUX_ADMIN_TOKEN", "")
+        token = os.environ.get("APICALAI_ADMIN_TOKEN", "")
         provided = self.headers.get("Authorization", "")
         if not token or not hmac.compare_digest(provided, "Bearer " + token):
             self._send_json({
-                "error": "Admin changes are disabled without a valid NEUROFLUX_ADMIN_TOKEN",
+                "error": "Admin changes are disabled without a valid APICALAI_ADMIN_TOKEN",
             }, 403)
             return False
         return True
@@ -356,7 +356,7 @@ class APIHandler(BaseHTTPRequestHandler):
         self._send_json({
             "status": "healthy",
             "version": "1.0.0",
-            "engine": "NeuroFlux Distributed AI Inference Engine",
+            "engine": "ApicalAI Distributed AI Inference Engine",
             "uptime": state.metrics["uptime_seconds"],
             "workers": len(state.workers),
             "models": len(state.models),
@@ -530,7 +530,7 @@ class APIHandler(BaseHTTPRequestHandler):
         model = ModelInfo(
             name=body["name"],
             version=body.get("version", "1.0.0"),
-            framework=body.get("framework", "NeuroFlux"),
+            framework=body.get("framework", "ApicalAI"),
             input_shape=body.get("input_shape", []),
             output_shape=body.get("output_shape", []),
             parameters=body.get("parameters", 0),
@@ -563,7 +563,7 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def _get_architecture(self):
         self._send_json({
-            "name": "NeuroFlux",
+            "name": "ApicalAI",
             "layers": [
                 {"name": "OS Layer", "components": ["Memory Pool Allocator", "Task Scheduler", "IPC Message Bus", "System Profiler"]},
                 {"name": "Neural Framework", "components": ["Tensor Engine", "Autograd", "Layers (Dense/Conv/Attention)", "Optimizers (Adam/SGD)"]},
@@ -592,7 +592,7 @@ class APIHandler(BaseHTTPRequestHandler):
 def create_server(host: str = "0.0.0.0", port: int = 8080) -> HTTPServer:
     """Create and return the API server."""
     server = HTTPServer((host, port), APIHandler)
-    print(f"NeuroFlux API server starting on http://{host}:{port}")
+    print(f"ApicalAI API server starting on http://{host}:{port}")
     return server
 
 
@@ -600,7 +600,7 @@ def main():
     port = int(os.environ.get("PORT", 8080))
     server = create_server(port=port)
     try:
-        print(f"NeuroFlux API running on port {port}")
+        print(f"ApicalAI API running on port {port}")
         print(f"Dashboard: http://localhost:{port}/")
         print(f"API docs: http://localhost:{port}/api/health")
         server.serve_forever()

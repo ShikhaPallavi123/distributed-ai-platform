@@ -2,7 +2,7 @@
 
 Usage:
     python -m inferbench.runner                      # All engines
-    python -m inferbench.runner --engine neuroflux    # Single engine
+    python -m inferbench.runner --engine apicalai    # Single engine
     python -m inferbench.runner --output results.json # Save results
 """
 

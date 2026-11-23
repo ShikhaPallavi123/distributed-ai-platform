@@ -1,5 +1,5 @@
 """
-Example 1: Train a neural network from scratch using NeuroFlux.
+Example 1: Train a neural network from scratch using ApicalAI.
 
 This demonstrates:
 - Creating tensors with autograd
@@ -21,7 +21,7 @@ from neural.optimizers import Adam  # noqa: E402
 
 def main():
     print("=" * 50)
-    print("NeuroFlux — Neural Network Training Example")
+    print("ApicalAI — Neural Network Training Example")
     print("=" * 50)
 
     # Generate synthetic data: learn XOR

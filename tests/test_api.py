@@ -94,7 +94,7 @@ class TestAPIEndpoints(unittest.TestCase):
 
     def test_inference(self):
         status, body = self._post('/api/inference', {
-            'model': 'gpt-neuroflux-7b',
+            'model': 'gpt-apicalai-7b',
             'input': {'text': 'Hello world'}
         })
         self.assertEqual(status, 404)
@@ -119,7 +119,7 @@ class TestAPIEndpoints(unittest.TestCase):
         status, body = self._get('/api/models')
         self.assertEqual(status, 200)
         self.assertTrue(any(m['id'] == 'demo-sentiment-v1' for m in body['models']))
-        self.assertFalse(any(m['name'] == 'gpt-neuroflux-7b' for m in body['models']))
+        self.assertFalse(any(m['name'] == 'gpt-apicalai-7b' for m in body['models']))
 
     def test_ollama_model_api_with_mock_backend(self):
         class FakeOllama:
@@ -176,14 +176,14 @@ class TestAPIEndpoints(unittest.TestCase):
 
     def test_admin_registration_denied_without_token(self):
         with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop('NEUROFLUX_ADMIN_TOKEN', None)
+            os.environ.pop('APICALAI_ADMIN_TOKEN', None)
             status, body = self._post('/api/models', {'name': 'unauthorized'})
         self.assertEqual(status, 403)
-        self.assertIn('NEUROFLUX_ADMIN_TOKEN', body['error'])
+        self.assertIn('APICALAI_ADMIN_TOKEN', body['error'])
         self.assertNotIn('unauthorized', api_module.state.models)
 
     def test_admin_registration_metadata_only(self):
-        with mock.patch.dict(os.environ, {'NEUROFLUX_ADMIN_TOKEN': 'temporary-test-secret'}):
+        with mock.patch.dict(os.environ, {'APICALAI_ADMIN_TOKEN': 'temporary-test-secret'}):
             status, body = self._post(
                 '/api/models',
                 {'name': 'registered-only-test'},

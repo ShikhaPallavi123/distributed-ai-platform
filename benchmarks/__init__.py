@@ -1,1 +1,1 @@
-"""NeuroFlux reproducible performance benchmarks."""
+"""ApicalAI reproducible performance benchmarks."""

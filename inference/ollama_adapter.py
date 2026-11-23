@@ -1,6 +1,6 @@
 """Optional adapter for a *real* local Ollama language model.
 
-Configure with NEUROFLUX_OLLAMA_MODEL after pulling a model into Ollama.
+Configure with APICALAI_OLLAMA_MODEL after pulling a model into Ollama.
 Only standard-library networking is used; no model or GPU is fabricated.
 """
 import json

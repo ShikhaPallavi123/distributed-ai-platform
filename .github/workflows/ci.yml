@@ -1,4 +1,4 @@
-name: NeuroFlux CI/CD
+name: ApicalAI CI/CD
 
 on:
   push:
@@ -77,10 +77,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
-        run: docker build -t neuroflux:latest .
+        run: docker build -t apicalai:latest .
       - name: Test Docker health
         run: |
-          docker run -d --name nf-test -p 8080:8080 neuroflux:latest
+          docker run -d --name nf-test -p 8080:8080 apicalai:latest
           sleep 5
           curl -f http://localhost:8080/api/health || exit 1
           docker stop nf-test

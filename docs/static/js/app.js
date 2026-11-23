@@ -1,4 +1,4 @@
-// NeuroFlux Dashboard — Full-Stack Client
+// ApicalAI Dashboard — Full-Stack Client
 // =========================================
 
 const API = '';  // same origin
@@ -34,11 +34,11 @@ async function api(path, opts = {}) {
 // ── Mock data for static/demo deployment ──────────────
 const MOCK = {
   models: [
-    { id: 'gpt-neuroflux-7b', name: 'gpt-neuroflux-7b', framework: 'NeuroFlux', parameters: 7e9, status: 'loaded', avg_latency: 42.3, version: '2.1' },
-    { id: 'resnet50-classifier', name: 'resnet50-classifier', framework: 'NeuroFlux', parameters: 26e6, status: 'loaded', avg_latency: 8.7, version: '1.4' },
-    { id: 'bert-sentiment', name: 'bert-sentiment', framework: 'NeuroFlux', parameters: 110e6, status: 'loaded', avg_latency: 15.2, version: '3.0' },
-    { id: 'vae-imagegen', name: 'vae-imagegen', framework: 'NeuroFlux', parameters: 15e6, status: 'loaded', avg_latency: 23.1, version: '1.2' },
-    { id: 'agent-planner-v2', name: 'agent-planner-v2', framework: 'NeuroFlux', parameters: 350e6, status: 'loaded', avg_latency: 67.5, version: '2.0' },
+    { id: 'gpt-apicalai-7b', name: 'gpt-apicalai-7b', framework: 'ApicalAI', parameters: 7e9, status: 'loaded', avg_latency: 42.3, version: '2.1' },
+    { id: 'resnet50-classifier', name: 'resnet50-classifier', framework: 'ApicalAI', parameters: 26e6, status: 'loaded', avg_latency: 8.7, version: '1.4' },
+    { id: 'bert-sentiment', name: 'bert-sentiment', framework: 'ApicalAI', parameters: 110e6, status: 'loaded', avg_latency: 15.2, version: '3.0' },
+    { id: 'vae-imagegen', name: 'vae-imagegen', framework: 'ApicalAI', parameters: 15e6, status: 'loaded', avg_latency: 23.1, version: '1.2' },
+    { id: 'agent-planner-v2', name: 'agent-planner-v2', framework: 'ApicalAI', parameters: 350e6, status: 'loaded', avg_latency: 67.5, version: '2.0' },
   ],
   workers: [
     { id: 'gpu-worker-01', status: 'healthy', gpu_type: 'A100-80GB', gpu_memory_total: 85899345920, gpu_memory_used: 42949672960, current_load: 62, tasks_completed: 14823 },
@@ -109,7 +109,7 @@ function renderDashboard() {
   const gpuPct = totalGPU ? Math.round((usedGPU / totalGPU) * 100) : 0;
 
   return `
-    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#362a19; color:#f5d28b; border-radius:8px;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to NeuroFlux API</div>'}
+    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#362a19; color:#f5d28b; border-radius:8px;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Dashboard</h1>
     <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Real-time inference engine monitoring</p>
 
@@ -399,7 +399,7 @@ function renderArchitecture() {
 
   return `
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">System Architecture</h1>
-    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">NeuroFlux 8-layer stack — from OS primitives to agentic AI</p>
+    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">ApicalAI 8-layer stack — from OS primitives to agentic AI</p>
     <div class="card">
       <div class="card-body">
         ${layers.map(l => `
@@ -415,7 +415,7 @@ function renderArchitecture() {
         <div class="card-header"><span class="card-title">📂 Project Structure</span></div>
         <div class="card-body">
           <div class="code-block">
-neuroflux/
+apicalai/
 ├── core/           # OS-level primitives
 │   ├── memory/     # Pool allocator, mmap
 │   ├── scheduler/  # FIFO, Priority, MLFQ
@@ -514,13 +514,13 @@ function renderTerminal() {
     <div class="card">
       <div class="card-body" style="padding:0;">
         <div class="terminal" id="sys-terminal" style="min-height:400px; max-height:none;">
-          <div class="terminal-line"><span class="terminal-success">NeuroFlux Inference Engine v1.0</span></div>
+          <div class="terminal-line"><span class="terminal-success">ApicalAI Inference Engine v1.0</span></div>
           <div class="terminal-line"><span class="terminal-output">Type 'help' for available commands</span></div>
           <div class="terminal-line"><span class="terminal-output">─────────────────────────────────</span></div>
           ${state.terminalLines.map(l => `<div class="terminal-line">${l}</div>`).join('')}
         </div>
         <div style="display:flex; border-top:1px solid var(--border); background:#000;">
-          <span style="padding:10px 12px; color:var(--accent); font-family:var(--mono); font-size:12px;">neuroflux&gt;</span>
+          <span style="padding:10px 12px; color:var(--accent); font-family:var(--mono); font-size:12px;">apicalai&gt;</span>
           <input id="term-input" type="text" placeholder="Enter command..."
             style="flex:1; padding:10px 0; background:transparent; border:none; color:var(--text); font-family:var(--mono); font-size:12px; outline:none;"
             onkeydown="if(event.key==='Enter')execCommand()">
@@ -599,7 +599,7 @@ function execCommand() {
   input.value = '';
 
   const term = document.getElementById('sys-terminal');
-  term.innerHTML += `<div class="terminal-line"><span class="terminal-prompt">neuroflux&gt;</span> <span class="terminal-output">${cmd}</span></div>`;
+  term.innerHTML += `<div class="terminal-line"><span class="terminal-prompt">apicalai&gt;</span> <span class="terminal-output">${cmd}</span></div>`;
 
   const commands = {
     help: () => `<span class="terminal-success">Available commands:</span>
@@ -620,7 +620,7 @@ function execCommand() {
   P50: ${(state.latency.p50 || 0).toFixed(1)}ms
   P95: ${(state.latency.p95 || 0).toFixed(1)}ms
   P99: ${(state.latency.p99 || 0).toFixed(1)}ms`,
-    arch: () => `<span class="terminal-success">NeuroFlux Architecture — 8 Layers</span>
+    arch: () => `<span class="terminal-success">ApicalAI Architecture — 8 Layers</span>
   L7 Application    │ REST API, Dashboard, CLI
   L6 Agentic AI     │ ReAct, Planner, Orchestrator
   L5 Generative     │ Text Gen, Diffusion, Embeddings
@@ -640,7 +640,7 @@ function execCommand() {
     term.innerHTML += `<div class="terminal-line"><span class="terminal-error">Unknown command: ${cmd}. Type 'help' for available commands.</span></div>`;
   }
   term.scrollTop = term.scrollHeight;
-  state.terminalLines.push(`<span class="terminal-prompt">neuroflux&gt;</span> <span class="terminal-output">${cmd}</span>`);
+  state.terminalLines.push(`<span class="terminal-prompt">apicalai&gt;</span> <span class="terminal-output">${cmd}</span>`);
 }
 
 function showLoadModel() {

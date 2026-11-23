@@ -17,7 +17,7 @@ from agentic.reasoning import ChainOfThought, TreeOfThought  # noqa: E402
 
 def main():
     print("=" * 50)
-    print("NeuroFlux — Agentic AI Example")
+    print("ApicalAI — Agentic AI Example")
     print("=" * 50)
 
     # --- Chain of Thought ---

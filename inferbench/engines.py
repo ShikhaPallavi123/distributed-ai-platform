@@ -9,26 +9,26 @@ This allows InferBench to benchmark any engine uniformly.
 """
 
 
-# --- NeuroFlux Adapter ---
+# --- ApicalAI Adapter ---
 
-def neuroflux_init():
-    """Initialize NeuroFlux's DemoSentimentModel."""
+def apicalai_init():
+    """Initialize ApicalAI's DemoSentimentModel."""
     from inference.demo_sentiment import DemoSentimentModel
     return DemoSentimentModel()
 
 
-def neuroflux_predict(engine):
-    """Return a predict function for NeuroFlux."""
+def apicalai_predict(engine):
+    """Return a predict function for ApicalAI."""
     def predict(payload):
         return engine.predict(payload)
     return predict
 
 
-NEUROFLUX_ADAPTER = {
-    "name": "NeuroFlux",
+APICALAI_ADAPTER = {
+    "name": "ApicalAI",
     "version": "0.1.0",
-    "init_fn": neuroflux_init,
-    "predict_fn": neuroflux_predict,
+    "init_fn": apicalai_init,
+    "predict_fn": apicalai_predict,
     "requirements_file": "requirements.txt",
     "import_name": "inference.demo_sentiment",
     "observability": {
@@ -148,7 +148,7 @@ FLASK_SKLEARN_ADAPTER = {
 # --- Engine Registry ---
 
 ENGINES = {
-    "neuroflux": NEUROFLUX_ADAPTER,
+    "apicalai": APICALAI_ADAPTER,
     "flask_sklearn": FLASK_SKLEARN_ADAPTER,
 }
 

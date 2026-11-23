@@ -1,4 +1,4 @@
-"""Reproducible local benchmark for NeuroFlux's first real inference model.
+"""Reproducible local benchmark for ApicalAI's first real inference model.
 
 Run: python -m benchmarks.sentiment_baseline --iterations 200
 All results are measured on the machine executing this script.

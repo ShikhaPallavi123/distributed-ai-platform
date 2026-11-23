@@ -1,10 +1,10 @@
-# NeuroFlux — Distributed AI Inference Engine
+# ApicalAI — Distributed AI Inference Engine
 # Multi-stage Docker build
 # ============================================
 
 FROM python:3.11-slim AS base
 
-LABEL maintainer="NeuroFlux Team"
+LABEL maintainer="ApicalAI Team"
 LABEL description="Distributed AI Inference Engine — from OS primitives to agentic AI"
 LABEL version="1.0.0"
 

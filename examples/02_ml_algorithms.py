@@ -22,7 +22,7 @@ from ml.ensemble import RandomForest  # noqa: E402
 
 def main():
     print("=" * 50)
-    print("NeuroFlux — Classical ML Algorithms Example")
+    print("ApicalAI — Classical ML Algorithms Example")
     print("=" * 50)
     np.random.seed(42)
 

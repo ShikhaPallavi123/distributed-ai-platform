@@ -2,8 +2,8 @@
   "inferbench_version": "0.1.0",
   "timestamp": "2026-11-23T18:47:04.171353+00:00",
   "engines": {
-    "neuroflux": {
-      "engine": "NeuroFlux",
+    "apicalai": {
+      "engine": "ApicalAI",
       "engine_version": "0.1.0",
       "inferbench_version": "0.1.0",
       "timestamp": "2026-11-23T18:47:04.171417+00:00",
@@ -94,7 +94,7 @@
         "observability": {
           "dimension": "observability",
           "results": {
-            "engine": "NeuroFlux",
+            "engine": "ApicalAI",
             "features": {
               "request_tracing": true,
               "layer_metrics": true,
@@ -112,7 +112,7 @@
         "agent_readiness": {
           "dimension": "agent_readiness",
           "results": {
-            "engine": "NeuroFlux",
+            "engine": "ApicalAI",
             "features": {
               "native_agents": true,
               "multi_step_reasoning": true,

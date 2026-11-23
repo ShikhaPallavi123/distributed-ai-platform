@@ -1,16 +1,16 @@
 version: '3.8'
 
 services:
-  neuroflux-api:
+  apicalai-api:
     build: .
-    container_name: neuroflux-api
+    container_name: apicalai-api
     ports:
       - "8080:8080"
     environment:
       - PYTHONPATH=/app
-      - NEUROFLUX_HOST=0.0.0.0
-      - NEUROFLUX_PORT=8080
-      - NEUROFLUX_WORKERS=4
+      - APICALAI_HOST=0.0.0.0
+      - APICALAI_PORT=8080
+      - APICALAI_WORKERS=4
     volumes:
       - model-data:/app/models
       - logs:/app/logs
@@ -21,32 +21,32 @@ services:
           memory: 4G
           cpus: '2.0'
 
-  neuroflux-worker-1:
+  apicalai-worker-1:
     build: .
-    container_name: neuroflux-worker-1
+    container_name: apicalai-worker-1
     command: python -c "from inference.worker import InferenceWorker; w = InferenceWorker('worker-1'); w.start()"
     environment:
       - PYTHONPATH=/app
       - WORKER_ID=worker-1
-      - COORDINATOR_URL=http://neuroflux-api:8080
+      - COORDINATOR_URL=http://apicalai-api:8080
     volumes:
       - model-data:/app/models
     depends_on:
-      - neuroflux-api
+      - apicalai-api
     restart: unless-stopped
 
-  neuroflux-worker-2:
+  apicalai-worker-2:
     build: .
-    container_name: neuroflux-worker-2
+    container_name: apicalai-worker-2
     command: python -c "from inference.worker import InferenceWorker; w = InferenceWorker('worker-2'); w.start()"
     environment:
       - PYTHONPATH=/app
       - WORKER_ID=worker-2
-      - COORDINATOR_URL=http://neuroflux-api:8080
+      - COORDINATOR_URL=http://apicalai-api:8080
     volumes:
       - model-data:/app/models
     depends_on:
-      - neuroflux-api
+      - apicalai-api
     restart: unless-stopped
 
 volumes:
