@@ -109,7 +109,7 @@ function renderDashboard() {
   const gpuPct = totalGPU ? Math.round((usedGPU / totalGPU) * 100) : 0;
 
   return `
-    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#f7eff2; color:#9b6b7a; border:1px solid #e8dce1; border-radius:8px;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
+    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#f7f1f4; color:#6a4555; border:2px solid #a08892; border-radius:8px; font-weight:600;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Dashboard</h1>
     <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Real-time inference engine monitoring</p>
 
@@ -494,7 +494,7 @@ function renderTopology() {
               const y = cy + r * Math.sin(angle);
               const color = n.status === 'healthy' ? 'var(--green)' : n.status === 'busy' ? 'var(--amber)' : 'var(--red)';
               return `
-                <circle cx="${x}" cy="${y}" r="24" fill="rgba(255,255,255,0.9)" stroke="${color}" stroke-width="2"/>
+                <circle cx="${x}" cy="${y}" r="24" fill="#ffffff" stroke="${color}" stroke-width="2"/>
                 <text x="${x}" y="${y - 4}" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">${n.id}</text>
                 <text x="${x}" y="${y + 10}" text-anchor="middle" fill="${color}" font-size="8">${n.status}</text>
               `;
@@ -519,7 +519,7 @@ function renderTerminal() {
           <div class="terminal-line"><span class="terminal-output">─────────────────────────────────</span></div>
           ${state.terminalLines.map(l => `<div class="terminal-line">${l}</div>`).join('')}
         </div>
-        <div style="display:flex; border-top:1px solid var(--border); background:#2a2024;">
+        <div style="display:flex; border-top:1px solid var(--border); background:#1e161a;">
           <span style="padding:10px 12px; color:var(--accent); font-family:var(--mono); font-size:12px;">apicalai&gt;</span>
           <input id="term-input" type="text" placeholder="Enter command..."
             style="flex:1; padding:10px 0; background:transparent; border:none; color:var(--text); font-family:var(--mono); font-size:12px; outline:none;"
