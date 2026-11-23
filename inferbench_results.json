@@ -1,0 +1,251 @@
+{
+  "inferbench_version": "0.1.0",
+  "timestamp": "2026-11-23T18:47:04.171353+00:00",
+  "engines": {
+    "neuroflux": {
+      "engine": "NeuroFlux",
+      "engine_version": "0.1.0",
+      "inferbench_version": "0.1.0",
+      "timestamp": "2026-11-23T18:47:04.171417+00:00",
+      "dimensions": {
+        "throughput": {
+          "dimension": "throughput",
+          "results": {
+            "batch_1": {
+              "requests_per_second": 65897.78,
+              "total_requests": 329489,
+              "duration_seconds": 5.0
+            },
+            "batch_8": {
+              "requests_per_second": 67930.07,
+              "total_requests": 339656,
+              "duration_seconds": 5.0
+            },
+            "batch_32": {
+              "requests_per_second": 70646.5,
+              "total_requests": 353248,
+              "duration_seconds": 5.0
+            },
+            "batch_128": {
+              "requests_per_second": 63210.18,
+              "total_requests": 316160,
+              "duration_seconds": 5.002
+            }
+          }
+        },
+        "latency": {
+          "dimension": "latency",
+          "results": {
+            "concurrency_1": {
+              "p50_ms": 0.0177,
+              "p95_ms": 0.0295,
+              "p99_ms": 0.0701,
+              "mean_ms": 0.0205,
+              "min_ms": 0.015,
+              "max_ms": 0.2054,
+              "stdev_ms": 0.0136,
+              "iterations": 300
+            }
+          }
+        },
+        "cold_start": {
+          "dimension": "cold_start",
+          "results": {
+            "mean_ms": 11.93,
+            "min_ms": 8.91,
+            "max_ms": 17.24,
+            "stdev_ms": 3.6,
+            "trials": 5
+          }
+        },
+        "memory": {
+          "dimension": "memory_footprint",
+          "results": {
+            "rss_before_mb": 35.15,
+            "rss_after_load_mb": 35.15,
+            "rss_delta_mb": 0.0,
+            "requests_processed": 100
+          }
+        },
+        "dependencies": {
+          "dimension": "dependency_weight",
+          "results": {
+            "direct_dependencies": 1,
+            "requirements": [
+              "numpy>=1.24.0"
+            ],
+            "total_installed_packages": 171,
+            "import_time_ms": 0.09
+          }
+        },
+        "portability": {
+          "dimension": "portability",
+          "results": {
+            "python_version": "3.13.18",
+            "platform": "Linux-6.18.44-fc-v726-x86_64-with-glibc2.39",
+            "machine": "x86_64",
+            "processor": "x86_64",
+            "os": "Linux",
+            "os_version": "#1 SMP PREEMPT_DYNAMIC @0",
+            "architecture": "64bit",
+            "cpu_count": 2
+          }
+        },
+        "observability": {
+          "dimension": "observability",
+          "results": {
+            "engine": "NeuroFlux",
+            "features": {
+              "request_tracing": true,
+              "layer_metrics": true,
+              "memory_profiling": true,
+              "scheduling_visibility": true,
+              "consensus_visibility": true,
+              "model_internals": true,
+              "error_traces": true,
+              "latency_breakdown": true
+            },
+            "score": "8/8",
+            "depth": "full"
+          }
+        },
+        "agent_readiness": {
+          "dimension": "agent_readiness",
+          "results": {
+            "engine": "NeuroFlux",
+            "features": {
+              "native_agents": true,
+              "multi_step_reasoning": true,
+              "tool_use": true,
+              "planning": true,
+              "multi_agent_orchestration": true,
+              "agent_memory": true
+            },
+            "score": "6/6",
+            "readiness": "native"
+          }
+        }
+      }
+    },
+    "flask_sklearn": {
+      "engine": "Flask+sklearn Baseline",
+      "engine_version": "baseline",
+      "inferbench_version": "0.1.0",
+      "timestamp": "2026-11-23T18:47:24.872701+00:00",
+      "dimensions": {
+        "throughput": {
+          "dimension": "throughput",
+          "results": {
+            "batch_1": {
+              "requests_per_second": 174031.26,
+              "total_requests": 870166,
+              "duration_seconds": 5.0
+            },
+            "batch_8": {
+              "requests_per_second": 176103.36,
+              "total_requests": 880520,
+              "duration_seconds": 5.0
+            },
+            "batch_32": {
+              "requests_per_second": 166504.03,
+              "total_requests": 832544,
+              "duration_seconds": 5.0
+            },
+            "batch_128": {
+              "requests_per_second": 200957.31,
+              "total_requests": 1004800,
+              "duration_seconds": 5.0
+            }
+          }
+        },
+        "latency": {
+          "dimension": "latency",
+          "results": {
+            "concurrency_1": {
+              "p50_ms": 0.0043,
+              "p95_ms": 0.0077,
+              "p99_ms": 0.022,
+              "mean_ms": 0.0058,
+              "min_ms": 0.0036,
+              "max_ms": 0.1357,
+              "stdev_ms": 0.0086,
+              "iterations": 300
+            }
+          }
+        },
+        "cold_start": {
+          "dimension": "cold_start",
+          "results": {
+            "mean_ms": 0.41,
+            "min_ms": 0.37,
+            "max_ms": 0.51,
+            "stdev_ms": 0.06,
+            "trials": 5
+          }
+        },
+        "memory": {
+          "dimension": "memory_footprint",
+          "results": {
+            "rss_before_mb": 35.9,
+            "rss_after_load_mb": 35.9,
+            "rss_delta_mb": 0.0,
+            "requests_processed": 100
+          }
+        },
+        "dependencies": {
+          "dimension": "dependency_weight",
+          "results": {
+            "total_installed_packages": 171
+          }
+        },
+        "portability": {
+          "dimension": "portability",
+          "results": {
+            "python_version": "3.13.18",
+            "platform": "Linux-6.18.44-fc-v726-x86_64-with-glibc2.39",
+            "machine": "x86_64",
+            "processor": "x86_64",
+            "os": "Linux",
+            "os_version": "#1 SMP PREEMPT_DYNAMIC @0",
+            "architecture": "64bit",
+            "cpu_count": 2
+          }
+        },
+        "observability": {
+          "dimension": "observability",
+          "results": {
+            "engine": "Flask+sklearn Baseline",
+            "features": {
+              "request_tracing": false,
+              "layer_metrics": false,
+              "memory_profiling": false,
+              "scheduling_visibility": false,
+              "consensus_visibility": false,
+              "model_internals": false,
+              "error_traces": true,
+              "latency_breakdown": false
+            },
+            "score": "1/8",
+            "depth": "low"
+          }
+        },
+        "agent_readiness": {
+          "dimension": "agent_readiness",
+          "results": {
+            "engine": "Flask+sklearn Baseline",
+            "features": {
+              "native_agents": false,
+              "multi_step_reasoning": false,
+              "tool_use": false,
+              "planning": false,
+              "multi_agent_orchestration": false,
+              "agent_memory": false
+            },
+            "score": "0/6",
+            "readiness": "none"
+          }
+        }
+      }
+    }
+  }
+}
