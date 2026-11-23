@@ -109,7 +109,7 @@ function renderDashboard() {
   const gpuPct = totalGPU ? Math.round((usedGPU / totalGPU) * 100) : 0;
 
   return `
-    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#362a19; color:#f5d28b; border-radius:8px;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
+    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#fce8ef; color:#b85a7a; border-radius:8px;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Dashboard</h1>
     <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Real-time inference engine monitoring</p>
 
@@ -519,7 +519,7 @@ function renderTerminal() {
           <div class="terminal-line"><span class="terminal-output">─────────────────────────────────</span></div>
           ${state.terminalLines.map(l => `<div class="terminal-line">${l}</div>`).join('')}
         </div>
-        <div style="display:flex; border-top:1px solid var(--border); background:#000;">
+        <div style="display:flex; border-top:1px solid var(--border); background:#2d1f25;">
           <span style="padding:10px 12px; color:var(--accent); font-family:var(--mono); font-size:12px;">apicalai&gt;</span>
           <input id="term-input" type="text" placeholder="Enter command..."
             style="flex:1; padding:10px 0; background:transparent; border:none; color:var(--text); font-family:var(--mono); font-size:12px; outline:none;"

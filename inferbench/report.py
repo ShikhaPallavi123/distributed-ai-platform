@@ -76,8 +76,8 @@ def generate_report(results, output_path="inferbench_report.html"):
         agent_scores.append(agent or "0/6")
 
     # Build HTML
-    colors = ["#00d4aa", "#ff6b6b", "#4ecdc4", "#45b7d1", "#f9ca24",
-              "#6c5ce7"]
+    colors = ["#e8709a", "#b48ed2", "#6cc4a1", "#e4b04e", "#e8926a",
+              "#7ab8d4"]
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -88,13 +88,13 @@ def generate_report(results, output_path="inferbench_report.html"):
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {{
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --border: #1e1e2e;
-    --text: #e0e0e0;
-    --text-dim: #888;
-    --accent: #00d4aa;
-    --accent2: #ff6b6b;
+    --bg: #fef5f7;
+    --surface: #ffffff;
+    --border: #f5d0d8;
+    --text: #3d2a33;
+    --text-dim: #9e7f8a;
+    --accent: #e8709a;
+    --accent2: #b48ed2;
 }}
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 body {{ background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; max-width: 1200px; margin: 0 auto; }}
@@ -110,13 +110,13 @@ th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--b
 th {{ color: var(--accent); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }}
 td {{ font-size: 0.95rem; }}
 .score {{ display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 600; font-size: 0.85rem; }}
-.score-high {{ background: rgba(0,212,170,0.15); color: #00d4aa; }}
-.score-mid {{ background: rgba(249,202,36,0.15); color: #f9ca24; }}
-.score-low {{ background: rgba(255,107,107,0.15); color: #ff6b6b; }}
+.score-high {{ background: rgba(108,196,161,0.15); color: #4aab84; }}
+.score-mid {{ background: rgba(228,176,78,0.15); color: #c89a30; }}
+.score-low {{ background: rgba(224,107,122,0.15); color: #c0505e; }}
 .full-width {{ grid-column: 1 / -1; }}
 .badge {{ display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; margin-right: 8px; margin-bottom: 4px; }}
-.badge-yes {{ background: rgba(0,212,170,0.15); color: #00d4aa; }}
-.badge-no {{ background: rgba(255,107,107,0.1); color: #666; }}
+.badge-yes {{ background: rgba(108,196,161,0.15); color: #4aab84; }}
+.badge-no {{ background: rgba(224,107,122,0.08); color: #bba0a7; }}
 footer {{ text-align: center; color: var(--text-dim); padding: 32px 0; font-size: 0.85rem; }}
 </style>
 </head>
@@ -224,7 +224,7 @@ new Chart(document.getElementById('throughputChart'), {{
     labels: labels,
     datasets: [{{ data: {json.dumps(throughput_data)}, backgroundColor: colors }}]
   }},
-  options: {{ ...chartDefaults, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#888' }}, grid: {{ color: '#1e1e2e' }} }}, x: {{ ticks: {{ color: '#888' }}, grid: {{ display: false }} }} }} }}
+  options: {{ ...chartDefaults, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#9e7f8a' }}, grid: {{ color: '#f5d0d8' }} }}, x: {{ ticks: {{ color: '#9e7f8a' }}, grid: {{ display: false }} }} }} }}
 }});
 
 new Chart(document.getElementById('latencyChart'), {{
@@ -236,7 +236,7 @@ new Chart(document.getElementById('latencyChart'), {{
       {{ label: 'p99', data: {json.dumps(latency_p99)}, backgroundColor: colors }}
     ]
   }},
-  options: {{ ...chartDefaults, plugins: {{ legend: {{ display: true, labels: {{ color: '#888' }} }} }}, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#888' }}, grid: {{ color: '#1e1e2e' }} }}, x: {{ ticks: {{ color: '#888' }}, grid: {{ display: false }} }} }} }}
+  options: {{ ...chartDefaults, plugins: {{ legend: {{ display: true, labels: {{ color: '#9e7f8a' }} }} }}, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#9e7f8a' }}, grid: {{ color: '#f5d0d8' }} }}, x: {{ ticks: {{ color: '#9e7f8a' }}, grid: {{ display: false }} }} }} }}
 }});
 
 new Chart(document.getElementById('coldStartChart'), {{
@@ -245,7 +245,7 @@ new Chart(document.getElementById('coldStartChart'), {{
     labels: labels,
     datasets: [{{ data: {json.dumps(cold_start)}, backgroundColor: colors }}]
   }},
-  options: {{ ...chartDefaults, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#888' }}, grid: {{ color: '#1e1e2e' }} }}, x: {{ ticks: {{ color: '#888' }}, grid: {{ display: false }} }} }} }}
+  options: {{ ...chartDefaults, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#9e7f8a' }}, grid: {{ color: '#f5d0d8' }} }}, x: {{ ticks: {{ color: '#9e7f8a' }}, grid: {{ display: false }} }} }} }}
 }});
 
 const obsNums = {json.dumps([int(s.split('/')[0]) for s in obs_scores])};
@@ -255,11 +255,11 @@ new Chart(document.getElementById('capabilityChart'), {{
   data: {{
     labels: labels,
     datasets: [
-      {{ label: 'Observability (/8)', data: obsNums, backgroundColor: '#00d4aa99' }},
-      {{ label: 'Agent Readiness (/6)', data: agentNums, backgroundColor: '#4ecdc499' }}
+      {{ label: 'Observability (/8)', data: obsNums, backgroundColor: '#e8709a99' }},
+      {{ label: 'Agent Readiness (/6)', data: agentNums, backgroundColor: '#b48ed299' }}
     ]
   }},
-  options: {{ ...chartDefaults, plugins: {{ legend: {{ display: true, labels: {{ color: '#888' }} }} }}, scales: {{ y: {{ beginAtZero: true, max: 8, ticks: {{ color: '#888' }}, grid: {{ color: '#1e1e2e' }} }}, x: {{ ticks: {{ color: '#888' }}, grid: {{ display: false }} }} }} }}
+  options: {{ ...chartDefaults, plugins: {{ legend: {{ display: true, labels: {{ color: '#9e7f8a' }} }} }}, scales: {{ y: {{ beginAtZero: true, max: 8, ticks: {{ color: '#9e7f8a' }}, grid: {{ color: '#f5d0d8' }} }}, x: {{ ticks: {{ color: '#9e7f8a' }}, grid: {{ display: false }} }} }} }}
 }});
 </script>
 </body>
