@@ -17,7 +17,7 @@ import resource
 
 def measure_throughput(predict_fn, payloads, batch_sizes=(1, 8, 32, 128),
                        duration_seconds=10):
-    """Dimension 1: Throughput — requests/second at various batch sizes."""
+    """Sequential call throughput, grouped by loop size; not true batching."""
     results = {}
     for batch_size in batch_sizes:
         count = 0
@@ -33,19 +33,21 @@ def measure_throughput(predict_fn, payloads, batch_sizes=(1, 8, 32, 128),
             "total_requests": count,
             "duration_seconds": round(elapsed, 3),
         }
-    return {"dimension": "throughput", "results": results}
+    return {"dimension": "throughput", "method": "sequential_grouped_calls", "results": results}
 
 
-def measure_latency(predict_fn, payloads, concurrency_levels=(1, 10, 50),
+def measure_latency(predict_fn, payloads, concurrency_levels=(1,),
                     iterations=200):
     """Dimension 2: Latency — p50, p95, p99 under varying concurrency.
 
     Note: True concurrency requires threads/processes. This measures
     sequential latency at different queue depths as a baseline.
-    For thread-based concurrency, use measure_latency_concurrent().
+    For real concurrency use a separate HTTP benchmark.
     """
     results = {}
     for concurrency in concurrency_levels:
+        if concurrency != 1:
+            raise ValueError("This sequential measurement supports concurrency=1 only")
         latencies = []
         for i in range(iterations):
             payload = payloads[i % len(payloads)]
@@ -77,7 +79,7 @@ def measure_latency(predict_fn, payloads, concurrency_levels=(1, 10, 50),
 
 def measure_cold_start(engine_init_fn, predict_fn_from_engine, payload,
                        trials=5):
-    """Dimension 3: Cold start — time from zero to first prediction.
+    """Dimension 3: Model initialization to first prediction in a warm process.
 
     engine_init_fn: callable that returns an initialized engine/model
     predict_fn_from_engine: callable(engine) -> predict_fn
@@ -96,6 +98,7 @@ def measure_cold_start(engine_init_fn, predict_fn_from_engine, payload,
 
     return {
         "dimension": "cold_start",
+        "method": "in_process_model_initialization",
         "results": {
             "mean_ms": round(statistics.mean(times), 2),
             "min_ms": round(min(times), 2),
@@ -113,7 +116,7 @@ def measure_memory(predict_fn, payloads, num_requests=100):
 
     def get_rss_mb():
         usage = resource.getrusage(resource.RUSAGE_SELF)
-        return round(usage.ru_maxrss / 1024, 2)  # Convert KB to MB
+        return round(usage.ru_maxrss / (1024 ** 2 if sys.platform == "darwin" else 1024), 2)
 
     rss_before = get_rss_mb()
 
@@ -125,6 +128,7 @@ def measure_memory(predict_fn, payloads, num_requests=100):
 
     return {
         "dimension": "memory_footprint",
+        "method": "process_peak_rss_not_current_rss",
         "results": {
             "rss_before_mb": rss_before,
             "rss_after_load_mb": rss_after,
@@ -212,6 +216,7 @@ def measure_observability(engine_name, has_request_tracing=False,
     score = sum(1 for v in features.values() if v)
     return {
         "dimension": "observability",
+        "method": "declared_adapter_capabilities_not_measured",
         "results": {
             "engine": engine_name,
             "features": features,
@@ -242,6 +247,7 @@ def measure_agent_readiness(engine_name, has_native_agents=False,
     score = sum(1 for v in features.values() if v)
     return {
         "dimension": "agent_readiness",
+        "method": "declared_adapter_capabilities_not_measured",
         "results": {
             "engine": engine_name,
             "features": features,

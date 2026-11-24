@@ -174,7 +174,7 @@ class Coordinator:
             if w is None:
                 health.healthy = False
                 continue
-            health.healthy = w._running and not w._draining
+            health.healthy = w.status in ("healthy", "busy")
             health.last_check = time.time()
 
     def _select_worker(self, model_name: str) -> InferenceWorker | None:

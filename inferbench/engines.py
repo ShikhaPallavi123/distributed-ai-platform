@@ -25,123 +25,59 @@ def apicalai_predict(engine):
 
 
 APICALAI_ADAPTER = {
-    "name": "ApicalAI",
+    "name": "ApicalAI NumPy classifier (in-process)",
     "version": "0.1.0",
     "init_fn": apicalai_init,
     "predict_fn": apicalai_predict,
     "requirements_file": "requirements.txt",
     "import_name": "inference.demo_sentiment",
-    "observability": {
-        "has_request_tracing": True,
-        "has_layer_metrics": True,
-        "has_memory_profiling": True,
-        "has_scheduling_visibility": True,
-        "has_consensus_visibility": True,
-        "has_model_internals": True,
-        "has_error_traces": True,
-        "has_latency_breakdown": True,
-    },
-    "agent_readiness": {
-        "has_native_agents": True,
-        "has_multi_step": True,
-        "has_tool_use": True,
-        "has_planning": True,
-        "has_multi_agent": True,
-        "has_memory": True,
-    },
+    "observability": {"has_model_internals": True},
+    "agent_readiness": {},
 }
 
 
-# --- Flask + scikit-learn Baseline Adapter ---
+# --- scikit-learn Baseline Adapter ---
 
-def flask_sklearn_init():
-    """Initialize a simple sklearn sentiment classifier as a baseline."""
-    # We simulate a sklearn-like classifier using the same approach
-    # but wrapped as if it were a Flask endpoint's model
-    import numpy as np
+class SklearnSentiment:
+    """Actual scikit-learn in-process classifier, not Flask or a simulation."""
 
-    class SklearnBaseline:
-        """Mimics sklearn LogisticRegression for sentiment analysis."""
+    def __init__(self):
+        from sklearn.feature_extraction.text import CountVectorizer
+        from sklearn.linear_model import LogisticRegression
+        from inference.demo_sentiment import EXAMPLES, tokenize
 
-        def __init__(self):
-            import re
-            examples = [
-                ("i love this excellent product", 1),
-                ("wonderful helpful and amazing", 1),
-                ("this is great and useful", 1),
-                ("very happy with the service", 1),
-                ("fantastic quality and fast", 1),
-                ("good reliable experience", 1),
-                ("i hate this terrible product", 0),
-                ("awful broken and disappointing", 0),
-                ("this is bad and useless", 0),
-                ("very unhappy with the service", 0),
-                ("horrible quality and slow", 0),
-                ("poor unreliable experience", 0),
-            ]
-            self.vocabulary = sorted(
-                {w for t, _ in examples
-                 for w in re.findall(r"[a-z]+", t.lower())}
-            )
-            self.index = {w: i for i, w in enumerate(self.vocabulary)}
+        self.vectorizer = CountVectorizer(tokenizer=tokenize, token_pattern=None)
+        x = self.vectorizer.fit_transform([text for text, _ in EXAMPLES])
+        self.classifier = LogisticRegression(C=1.0, max_iter=1000, random_state=0)
+        self.classifier.fit(x, [label for _, label in EXAMPLES])
 
-            x = np.stack([self._features(t) for t, _ in examples])
-            y = np.array([l for _, l in examples], dtype=float)
-
-            # Train with sklearn-style: normal equation approximation
-            # (simulates the overhead of sklearn's fit)
-            self.weights = np.linalg.lstsq(x, y, rcond=None)[0]
-            self.tokenize = lambda text: re.findall(r"[a-z]+", text.lower())
-
-        def _features(self, text):
-            import re
-            features = np.zeros(len(self.vocabulary), dtype=float)
-            for word in re.findall(r"[a-z]+", text.lower()):
-                if word in self.index:
-                    features[self.index[word]] += 1.0
-            return features
-
-        def predict(self, text):
-            features = self._features(text)
-            score = float(features @ self.weights)
-            label = "positive" if score >= 0.5 else "negative"
-            return {"label": label, "confidence": round(abs(score - 0.5) + 0.5, 4)}
-
-    return SklearnBaseline()
+    def predict(self, text):
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("input must be a non-empty string")
+        x = self.vectorizer.transform([text])
+        if x.nnz == 0:
+            raise ValueError("No recognized vocabulary")
+        probability = float(self.classifier.predict_proba(x)[0, 1])
+        return {
+            "label": "positive" if probability >= 0.5 else "negative",
+            "positive_probability": probability,
+            "confidence": max(probability, 1 - probability),
+        }
 
 
-def flask_sklearn_predict(engine):
-    """Return a predict function for the Flask+sklearn baseline."""
-    def predict(payload):
-        return engine.predict(payload)
-    return predict
+def sklearn_init():
+    return SklearnSentiment()
 
 
-FLASK_SKLEARN_ADAPTER = {
-    "name": "Flask+sklearn Baseline",
-    "version": "baseline",
-    "init_fn": flask_sklearn_init,
-    "predict_fn": flask_sklearn_predict,
-    "requirements_file": None,
-    "import_name": None,
-    "observability": {
-        "has_request_tracing": False,
-        "has_layer_metrics": False,
-        "has_memory_profiling": False,
-        "has_scheduling_visibility": False,
-        "has_consensus_visibility": False,
-        "has_model_internals": False,
-        "has_error_traces": True,
-        "has_latency_breakdown": False,
-    },
-    "agent_readiness": {
-        "has_native_agents": False,
-        "has_multi_step": False,
-        "has_tool_use": False,
-        "has_planning": False,
-        "has_multi_agent": False,
-        "has_memory": False,
-    },
+SKLEARN_ADAPTER = {
+    "name": "scikit-learn logistic regression (in-process)",
+    "version": "0.2.0",
+    "init_fn": sklearn_init,
+    "predict_fn": apicalai_predict,
+    "requirements_file": "requirements-research.txt",
+    "import_name": "sklearn",
+    "observability": {"has_model_internals": True},
+    "agent_readiness": {},
 }
 
 
@@ -149,7 +85,7 @@ FLASK_SKLEARN_ADAPTER = {
 
 ENGINES = {
     "apicalai": APICALAI_ADAPTER,
-    "flask_sklearn": FLASK_SKLEARN_ADAPTER,
+    "sklearn": SKLEARN_ADAPTER,
 }
 
 

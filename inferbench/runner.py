@@ -39,17 +39,21 @@ PAYLOADS = [
 def run_benchmark(engine_name, duration=5, iterations=200,
                   cold_start_trials=5, verbose=True):
     """Run all 8 InferBench dimensions on a single engine."""
+    if duration <= 0 or iterations < 1 or cold_start_trials < 1:
+        raise ValueError("duration, iterations and cold_start_trials must be positive")
     adapter = get_engine(engine_name)
 
     if verbose:
         print(f"\n{'='*60}")
-        print(f"  InferBench v0.1.0 — {adapter['name']}")
+        print(f"  InferBench v0.2.0 — {adapter['name']}")
         print(f"{'='*60}\n")
 
     results = {
         "engine": adapter["name"],
         "engine_version": adapter["version"],
-        "inferbench_version": "0.1.0",
+        "scope": "toy_sentiment_in_process_cpu_microbenchmark",
+        "limitations": "No HTTP, true batching, GPU, distributed execution, or held-out quality evaluation.",
+        "inferbench_version": "0.2.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "dimensions": {},
     }
@@ -127,7 +131,7 @@ def run_benchmark(engine_name, duration=5, iterations=200,
 def run_all(duration=5, iterations=200, cold_start_trials=5, verbose=True):
     """Run InferBench on all registered engines."""
     all_results = {
-        "inferbench_version": "0.1.0",
+        "inferbench_version": "0.2.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "engines": {},
     }
@@ -301,7 +305,7 @@ def main():
 
     if args.engine:
         results = {
-            "inferbench_version": "0.1.0",
+            "inferbench_version": "0.2.0",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "engines": {
                 args.engine: run_benchmark(

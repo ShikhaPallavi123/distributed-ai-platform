@@ -63,3 +63,23 @@ class DemoSentimentModel:
                 "positive_probability": round(positive, 4),
                 "model_type": "trained_numpy_logistic_regression",
                 "note": "Small demonstration model; not validated for production accuracy"}
+
+    def predict_batch(self, texts):
+        """Vectorized CPU inference using the same weights as predict()."""
+        if not isinstance(texts, (list, tuple)) or not texts:
+            raise ValueError("texts must be a non-empty list or tuple")
+        if any(not isinstance(text, str) or not text.strip() for text in texts):
+            raise ValueError("input.text must be a non-empty string")
+        x = np.stack([self._features(text) for text in texts])
+        if not np.all(np.any(x, axis=1)):
+            raise ValueError("No recognized vocabulary; try a short sentiment sentence")
+        logits = np.clip(x @ self.weights + self.bias, -30, 30)
+        probabilities = 1 / (1 + np.exp(-logits))
+        return [
+            {"label": "positive" if p >= 0.5 else "negative",
+             "confidence": round(max(float(p), 1 - float(p)), 4),
+             "positive_probability": round(float(p), 4),
+             "model_type": "trained_numpy_logistic_regression",
+             "note": "Small demonstration model; not validated for production accuracy"}
+            for p in probabilities
+        ]

@@ -47,6 +47,23 @@ class InferenceWorker:
         self._lock = asyncio.Lock()
 
     @property
+    def status(self) -> str:
+        if self._draining:
+            return "draining"
+        if not self._running:
+            return "offline"
+        return "busy" if self.is_busy else "healthy"
+
+    @property
+    def active_requests(self) -> int:
+        return self._active_requests
+
+    @property
+    def gpu_utilization(self) -> None:
+        """No hardware telemetry is collected by this implementation."""
+        return None
+
+    @property
     def available_memory_mb(self) -> float:
         return self.gpu_memory_mb - self._used_memory_mb
 
@@ -70,7 +87,7 @@ class InferenceWorker:
         self, name: str, model: Any, size_mb: float = 500.0
     ) -> bool:
         """Load a model into GPU memory. Returns False if OOM."""
-        if size_mb > self.available_memory_mb:
+        if name in self._models or size_mb < 0 or size_mb > self.available_memory_mb:
             return False
         self._models[name] = model
         self._model_sizes[name] = size_mb
@@ -151,6 +168,8 @@ class InferenceWorker:
         avg = s.total_latency_ms / s.requests_processed if s.requests_processed else 0
         return {
             "worker_id": self.worker_id,
+            "status": self.status,
+            "gpu_utilization": self.gpu_utilization,
             "requests_processed": s.requests_processed,
             "errors": s.errors,
             "avg_latency_ms": round(avg, 2),
