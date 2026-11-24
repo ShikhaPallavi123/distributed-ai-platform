@@ -67,8 +67,16 @@ jobs:
         run: |
           node --check ui/static/js/app.js
           node --check docs/static/js/app.js
+          node --check ui/static/js/browser_model.js
+          node --check docs/static/js/browser_model.js
+      - name: Run browser model and GitHub Pages smoke tests
+        run: |
+          node tests/browser_model.test.cjs
+          node tests/browser_dashboard.test.cjs
       - name: Ensure GitHub Pages and backend dashboards stay in sync
-        run: cmp ui/static/js/app.js docs/static/js/app.js
+        run: |
+          cmp ui/static/js/app.js docs/static/js/app.js
+          cmp ui/static/js/browser_model.js docs/static/js/browser_model.js
 
   docker:
     name: Docker Build
