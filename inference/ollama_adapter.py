@@ -65,3 +65,55 @@ class OllamaAdapter:
             "generated_tokens": result.get("eval_count"),
             "total_duration_ns": result.get("total_duration"),
         }
+
+    def chat(self, messages, stream=False):
+        """Real Ollama chat protocol; caller owns conversation history."""
+        if not isinstance(messages, list) or not 1 <= len(messages) <= 24:
+            raise ValueError("provide 1–24 messages")
+        total = 0
+        for message in messages:
+            if not isinstance(message, dict) or message.get("role") not in ("user", "assistant"):
+                raise ValueError("only user and assistant messages are accepted")
+            content = message.get("content")
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("message content required")
+            total += len(content)
+        if total > 16000 or messages[-1]["role"] != "user":
+            raise ValueError("history must end with user and contain at most 16000 characters")
+        payload = {"model": self.model, "messages": [
+            {"role": m["role"], "content": m["content"]} for m in messages
+        ], "stream": stream, "options": {"num_predict": 256}}
+        request = Request(self.base_url + "/api/chat", data=json.dumps(payload).encode(),
+                          headers={"Content-Type": "application/json"}, method="POST")
+        if stream:
+            return self._chat_chunks(request)
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                result = json.load(response)
+            content = result["message"]["content"]
+            if not isinstance(content, str):
+                raise ValueError("invalid response content")
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise OllamaBackendError("Chat backend failed") from exc
+        return {"text": content, "provider_model": self.model,
+                "prompt_tokens": result.get("prompt_eval_count"),
+                "generated_tokens": result.get("eval_count")}
+
+    def _chat_chunks(self, request):
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                for line in response:
+                    data = json.loads(line)
+                    if data.get("error"):
+                        raise OllamaBackendError("Chat backend returned an error")
+                    content = data.get("message", {}).get("content", "")
+                    if not isinstance(content, str):
+                        raise ValueError("invalid chunk")
+                    if content:
+                        yield {"text": content, "done": False}
+                    if data.get("done") is True:
+                        yield {"done": True, "generated_tokens": data.get("eval_count")}
+                        return
+            raise OllamaBackendError("Chat stream ended without completion")
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise OllamaBackendError("Chat stream failed") from exc

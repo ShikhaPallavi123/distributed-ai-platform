@@ -20,6 +20,8 @@ from inference.demo_sentiment import DemoSentimentModel
 from inference.ollama_adapter import OllamaAdapter, OllamaBackendError
 from inference.adaptive_router import route, NoEligibleModel
 from inference.model_pool import load_pool
+from inference.grounded import retrieve
+from inference.safe_tools import run_tool_workflow
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +382,9 @@ class APIHandler(BaseHTTPRequestHandler):
         routes = {
             "/api/inference": self._run_inference,
             "/api/route": self._route_inference,
+            "/api/chat": self._chat,
+            "/api/retrieve": self._retrieve,
+            "/api/tools/run": self._tools_run,
             "/api/models": self._register_model,
             "/api/workers": self._register_worker,
             "/api/agents/run": self._run_agent,
@@ -684,6 +689,51 @@ class APIHandler(BaseHTTPRequestHandler):
             return
         state.workers[worker.worker_id] = worker
         self._send_json({"status": "registered", "worker": asdict(worker)}, 201)
+
+    def _retrieve(self):
+        body = self._read_body()
+        self._send_json(retrieve(body.get("question"), body.get("documents"), body.get("limit", 3)))
+
+    def _tools_run(self):
+        body = self._read_body()
+        self._send_json(run_tool_workflow(body.get("steps")))
+
+    def _chat(self):
+        body = self._read_body()
+        if ollama_client is None:
+            self._send_json({"error": "Configure an Ollama chat model first"}, 503)
+            return
+        streaming = body.get("stream", False)
+        if not isinstance(streaming, bool):
+            raise ValueError("stream must be boolean")
+        try:
+            result = ollama_client.chat(body.get("messages"), stream=streaming)
+        except OllamaBackendError:
+            self._send_json({"error": "Chat backend unavailable"}, 503)
+            return
+        if not streaming:
+            self._send_json(result)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        origin = self.headers.get("Origin")
+        if origin and origin == os.environ.get("APICALAI_ALLOWED_ORIGIN", ""):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        self.end_headers()
+        try:
+            for chunk in result:
+                self.wfile.write(json.dumps(chunk).encode() + b"\\n")
+                self.wfile.flush()
+        except OllamaBackendError:
+            self.wfile.write(b'{"error":"Chat backend unavailable","done":false}\\n')
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            result.close()
+            self.close_connection = True
 
     def _run_agent(self):
         """Do not report synthetic agent steps as successful execution."""
