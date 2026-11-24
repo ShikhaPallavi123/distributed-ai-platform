@@ -10,7 +10,29 @@ import os
 import statistics
 import time
 
-from inference.openai_compatible import CompatibleAdapter
+from urllib.request import Request, urlopen
+
+
+class CompatibleAdapter:
+    """Minimal standalone loopback benchmark client, no project dependencies."""
+    def __init__(self, model, origin, key=None, max_tokens=64):
+        if origin != "http://127.0.0.1:18080":
+            raise ValueError("Benchmark only supports the private loopback endpoint")
+        self.model, self.origin, self.key = model, origin, key
+        self.max_tokens = max_tokens
+
+    def generate(self, prompt):
+        payload = {"model": self.model, "messages": [{"role": "user", "content": prompt}],
+                   "temperature": 0, "max_tokens": self.max_tokens, "stream": False}
+        headers = {"Content-Type": "application/json"}
+        if self.key:
+            headers["Authorization"] = "Bearer " + self.key
+        request = Request(self.origin + "/v1/chat/completions",
+                          data=json.dumps(payload).encode(), headers=headers)
+        with urlopen(request, timeout=90) as response:
+            result = json.load(response)
+        return {"text": result["choices"][0]["message"]["content"],
+                "generated_tokens": result["usage"]["completion_tokens"]}
 
 PROMPTS = [
     "Explain what a computer is in two short sentences.",
