@@ -34,6 +34,7 @@ class CompatibleAdapter:
         return {"text": result["choices"][0]["message"]["content"],
                 "generated_tokens": result["usage"]["completion_tokens"]}
 
+
 PROMPTS = [
     "Explain what a computer is in two short sentences.",
     "Describe the purpose of a database in two short sentences.",
