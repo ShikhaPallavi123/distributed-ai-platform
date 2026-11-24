@@ -29,3 +29,14 @@ If no eligible model exists, the API returns 503, not a made-up answer.
 The operator supplies the calibration evidence; no guarantee of correctness
 on new inputs or general hallucination detection is implied. The policy is
 a simple research baseline, not an established novel contribution.
+
+## Exploratory real-model study
+
+CI evaluates two actual local classifiers on separate hand-written calibration
+and test sets of 16 examples each, including negation and unknown vocabulary.
+The sets were authored as examples for this project; they are not independently
+annotated or representative. Exact overlap with model training is rejected.
+The study compares fastest-only, highest-calibration-accuracy-only, and
+quality-constrained policies. Failed or abstained predictions count against
+accuracy; coverage and raw latency measurements are reported separately.
+Use a substantial public dataset with an untouched test split for a paper.
