@@ -249,6 +249,23 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual([r["output"] for r in baseline["results"]],
                          [r["output"] for r in batch["results"]])
 
+    def test_routed_api_with_mocked_provider_transport(self):
+        from inference.adaptive_router import Candidate
+        candidate = Candidate("llm-test", .99, 1000, 1, lambda text: {"text": text})
+        worker = api_module.WorkerInfo("llm-test", "test", 11434, gpu_memory_total=0)
+        with mock.patch.object(api_module, "llm_pool", {"llm-test": candidate}), \
+                mock.patch.object(api_module, "calibration_id", "test-split"), \
+                mock.patch.dict(api_module.state.workers, {"llm-test": worker}):
+            status, body = self._post("/api/route", {"text": "test", "min_quality": .8})
+            self.assertEqual(status, 200)
+            self.assertEqual(body["selected_model"], "llm-test")
+            self.assertEqual(body["calibration_id"], "test-split")
+            self.assertEqual(body["output"], {"text": "test"})
+            self.assertEqual(worker.tasks_completed, 1)
+            status, body = self._post("/api/route", {"text": "test", "min_quality": 1})
+            self.assertEqual(status, 503)
+            self.assertEqual(body["code"], "NO_ELIGIBLE_MODEL")
+
 
 if __name__ == "__main__":
     unittest.main()

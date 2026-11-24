@@ -25,3 +25,14 @@ The browser demo is independent of this backend.
 `python -m apicalai_cli status`, `python -m apicalai_cli models`, or
 `python -m apicalai_cli infer 'wonderful great'`. Configure a shared API key
 via the APICALAI_API_KEY environment variable, never in a public URL.
+
+## Public website remote console
+
+The Remote Inference page connects to a user-selected trusted API origin.
+Configure HTTPS through a reverse proxy and set APICALAI_ALLOWED_ORIGIN to
+`https://shikhapallavi123.github.io` for the project's Pages website.
+Use a non-admin client API key, never a model-provider credential. The
+console retains the connection and key only in memory, uses explicit
+requests without redirects, and displays all responses as text. No hosted
+backend or cloud account is provisioned automatically. Docker on Linux may
+require explicit networking configuration to reach an Ollama server.

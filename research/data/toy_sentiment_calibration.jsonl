@@ -1,0 +1,16 @@
+{"text":"excellent service and great quality","expected":"positive"}
+{"text":"awful quality and terrible service","expected":"negative"}
+{"text":"wonderful fast and reliable","expected":"positive"}
+{"text":"bad slow and unreliable","expected":"negative"}
+{"text":"the service was helpful","expected":"positive"}
+{"text":"the product was broken","expected":"negative"}
+{"text":"i am happy with this","expected":"positive"}
+{"text":"i am unhappy with this","expected":"negative"}
+{"text":"not good at all","expected":"negative"}
+{"text":"not terrible at all","expected":"positive"}
+{"text":"a delightful purchase","expected":"positive"}
+{"text":"a miserable purchase","expected":"negative"}
+{"text":"amazing quality for me","expected":"positive"}
+{"text":"poor service for me","expected":"negative"}
+{"text":"fantastic and useful","expected":"positive"}
+{"text":"horrible and useless","expected":"negative"}
