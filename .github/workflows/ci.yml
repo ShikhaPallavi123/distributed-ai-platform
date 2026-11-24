@@ -94,6 +94,16 @@ jobs:
           python -c "import json; r=json.load(open('results.json')); assert len(r['engines']) == 2; assert all('error' not in e for e in r['engines'].values())"
           python -m inferbench.report results.json --output report.html
           python -m inferbench.batch_study --repeats 20 --output batch-study.json
+      - name: Measure actual HTTP request throughput and latency
+        run: |
+          python -m api.app > server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/health; then break; fi
+            sleep 1
+          done
+          python -m inferbench.http_study --requests 60 --output http-study.json
       - uses: actions/upload-artifact@v4
         with:
           name: inferbench-exploratory-cpu
@@ -101,6 +111,7 @@ jobs:
             results.json
             report.html
             batch-study.json
+            http-study.json
 
   docker:
     name: Docker Build

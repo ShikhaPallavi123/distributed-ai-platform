@@ -34,3 +34,10 @@ Both variants use exactly the same trained weights, validate equal outputs,
 execute warm-up predictions and alternate order. Raw timings are retained.
 This is a CPU microbenchmark of vectorized operations, not GPU dynamic batching.
 The API also accepts `mode: vectorized_cpu` on `/api/batch` (up to 32 items).
+
+## HTTP serving experiment
+
+Start a real API server, then run `python -m inferbench.http_study --requests 60 --output http-study.json`.
+It uses concurrent clients and includes HTTP overhead, reports failures, and
+checks output consistency. It does not measure independently labeled accuracy.
+See [preliminary related work](RELATED_WORK.md) before making novelty claims.
