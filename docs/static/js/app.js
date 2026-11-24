@@ -425,6 +425,10 @@ function renderInference() {
 
 // ── Remote inference console (explicitly trusted endpoints only) ─────
 const remoteConnection = { origin: '', key: '' };
+const chatHistory = [];
+let chatRunning = false;
+let remoteSession = 0;
+let workspaceToken = '';
 
 function parseBackendOrigin(value) {
   const url = new URL(value.trim());
@@ -493,10 +497,68 @@ function renderRemote() {
         <pre id="remote-result" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:16px;"></pre>
       </div>
     </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><span class="card-title">Streaming chatbot</span></div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--text-muted);">Requires a configured Ollama chat model. Conversation history stays in memory and is sent to your selected backend for each turn.</p>
+        <pre id="chat-history" style="white-space:pre-wrap;overflow-wrap:anywhere;">${escapeHtml(chatHistory.map(m => m.role + ': ' + m.content).join('\n\n'))}</pre>
+        <textarea id="chat-input" rows="3" maxlength="4000" placeholder="Ask your model..." style="width:100%;padding:10px;margin:12px 0;"></textarea>
+        <button class="btn btn-primary" onclick="sendChat()">Send message</button>
+        <button class="btn btn-secondary" onclick="clearChat()">Clear conversation</button>
+        <pre id="chat-status" style="white-space:pre-wrap;overflow-wrap:anywhere;"></pre>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><span class="card-title">Grounded document retrieval</span></div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--text-muted);">Find exact source passages in supplied text. This verifies quotation provenance, not factual truth.</p>
+        <textarea id="retrieve-doc" rows="5" maxlength="20000" placeholder="Paste a document" style="width:100%;padding:10px;margin:12px 0;"></textarea>
+        <input id="retrieve-query" maxlength="2000" placeholder="Question about the document" style="width:100%;padding:10px;margin-bottom:12px;">
+        <button class="btn btn-primary" onclick="runRetrieval()">Find source passages</button>
+        <pre id="retrieve-result" style="white-space:pre-wrap;overflow-wrap:anywhere;"></pre>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><span class="card-title">Restricted tool execution</span></div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--text-muted);">Execute real arithmetic, not autonomous shell or web access.</p>
+        <input id="calc-input" maxlength="200" placeholder="(2 + 3) * 4" style="width:100%;padding:10px;margin:12px 0;">
+        <button class="btn btn-primary" onclick="runCalculator()">Calculate</button>
+        <pre id="calc-result" style="white-space:pre-wrap;overflow-wrap:anywhere;"></pre>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><span class="card-title">Private workspace beta</span></div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--text-muted);">Invite-only, operator-enabled accounts. Documents are stored on your chosen server. Do not store sensitive data.</p>
+        <label for="ws-user">Username</label>
+        <input id="ws-user" autocomplete="username" maxlength="40" style="width:100%;padding:10px;margin:6px 0;">
+        <label for="ws-password">Password</label>
+        <input id="ws-password" type="password" autocomplete="off" maxlength="128" style="width:100%;padding:10px;margin:6px 0;">
+        <label for="ws-invite">Operator invitation (registration only)</label>
+        <input id="ws-invite" type="password" autocomplete="off" style="width:100%;padding:10px;margin:6px 0;">
+        <button class="btn btn-secondary" onclick="workspaceAuth(true)">Register</button>
+        <button class="btn btn-primary" onclick="workspaceAuth(false)">Log in</button>
+        <button class="btn btn-secondary" onclick="workspaceAction('logout')">Log out</button>
+        <hr style="margin:16px 0;opacity:.3;">
+        <input id="ws-doc-id" maxlength="100" placeholder="Document ID" style="width:100%;padding:10px;margin:6px 0;">
+        <textarea id="ws-doc-text" rows="4" maxlength="20000" placeholder="Text to save in your private workspace" style="width:100%;padding:10px;margin:6px 0;"></textarea>
+        <button class="btn btn-primary" onclick="workspaceAction('save')">Save document</button>
+        <button class="btn btn-secondary" onclick="workspaceAction('documents')">List my documents</button>
+        <button class="btn btn-secondary" onclick="workspaceAction('delete')">Delete named document</button>
+        <input id="ws-question" maxlength="2000" placeholder="Ask about your documents" style="width:100%;padding:10px;margin:12px 0;">
+        <button class="btn btn-primary" onclick="workspaceAction('ask')">Retrieve evidence</button>
+        <pre id="ws-status" style="white-space:pre-wrap;overflow-wrap:anywhere;"></pre>
+      </div>
+    </div>
   `;
 }
 
 async function connectRemote() {
+  remoteSession++;
+  workspaceToken = '';
+  chatHistory.length = 0;
+  chatRunning = false;
   const status = document.getElementById('remote-status');
   const keyInput = document.getElementById('remote-key');
   remoteConnection.origin = '';
@@ -519,6 +581,12 @@ async function connectRemote() {
 }
 
 function disconnectRemote() {
+  remoteSession++;
+  workspaceToken = '';
+  chatHistory.length = 0;
+  chatRunning = false;
+  document.getElementById('chat-history').textContent = '';
+  document.getElementById('chat-status').textContent = '';
   remoteConnection.origin = '';
   remoteConnection.key = '';
   document.getElementById('remote-key').value = '';
@@ -549,6 +617,149 @@ async function runRemote(routed) {
   } catch (error) {
     result.textContent = error.message;
   }
+}
+
+
+function clearChat() {
+  if (chatRunning) return;
+  chatHistory.length = 0;
+  document.getElementById('chat-history').textContent = '';
+  document.getElementById('chat-status').textContent = '';
+}
+
+async function sendChat() {
+  if (chatRunning) return;
+  const status = document.getElementById('chat-status');
+  const history = document.getElementById('chat-history');
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !remoteConnection.origin) {
+    status.textContent = 'Connect a trusted backend and enter a message.';
+    return;
+  }
+  const session = remoteSession;
+  const messages = [...chatHistory, {role:'user', content:text}];
+  if (messages.length > 24 || messages.reduce((n,m) => n + m.content.length, 0) > 16000) {
+    status.textContent = 'Conversation limit reached. Clear history to start again.';
+    return;
+  }
+  chatRunning = true;
+  status.textContent = 'Generating...';
+  let answer = '', complete = false, reader;
+  try {
+    const headers = {'Content-Type':'application/json'};
+    if (remoteConnection.key) headers.Authorization = 'Bearer ' + remoteConnection.key;
+    const response = await fetch(remoteConnection.origin + '/api/chat', {
+      method:'POST', headers, credentials:'omit', redirect:'error', cache:'no-store',
+      body: JSON.stringify({messages,stream:true}),
+    });
+    if (!response.ok || !response.body) throw new Error('Chat unavailable (HTTP ' + response.status + ').');
+    reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const consume = line => {
+      if (!line.trim()) return;
+      const chunk = JSON.parse(line);
+      if (chunk.error) throw new Error(chunk.error);
+      if (typeof chunk.text === 'string') answer += chunk.text;
+      if (chunk.done === true) complete = true;
+      if (session === remoteSession) status.textContent = answer || 'Generating...';
+    };
+    while (true) {
+      const part = await reader.read();
+      if (session !== remoteSession) return;
+      if (part.done) break;
+      buffer += decoder.decode(part.value, {stream:true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      lines.forEach(consume);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) consume(buffer);
+    if (!complete || !answer.trim()) throw new Error('Incomplete chat stream.');
+    chatHistory.push({role:'user',content:text},{role:'assistant',content:answer});
+    history.textContent = chatHistory.map(m => m.role + ': ' + m.content).join('\n\n');
+    input.value = '';
+    status.textContent = 'Completed.';
+  } catch (error) {
+    if (session === remoteSession) status.textContent = 'Chat error: ' + error.message;
+  } finally {
+    if (reader) { try { await reader.cancel(); } catch (_) {} }
+    if (session === remoteSession) chatRunning = false;
+  }
+}
+
+async function runRetrieval() {
+  const output = document.getElementById('retrieve-result');
+  try {
+    const result = await remoteRequest('/api/retrieve', {
+      question:document.getElementById('retrieve-query').value,
+      documents:[{id:'document-1',text:document.getElementById('retrieve-doc').value}],
+    });
+    output.textContent = JSON.stringify(result,null,2);
+  } catch(error) { output.textContent = error.message; }
+}
+
+async function runCalculator() {
+  const output = document.getElementById('calc-result');
+  try {
+    const result = await remoteRequest('/api/tools/run', {steps:[
+      {tool:'calculator',arguments:{expression:document.getElementById('calc-input').value}},
+    ]});
+    output.textContent = JSON.stringify(result,null,2);
+  } catch(error) { output.textContent = error.message; }
+}
+
+
+async function workspaceRequest(action, payload, token = workspaceToken) {
+  if (!remoteConnection.origin) throw new Error('Connect to your trusted backend first.');
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers.Authorization = 'Bearer ' + token;
+  const response = await fetch(remoteConnection.origin + '/api/workspace/' + action, {
+    method:'POST', headers, credentials:'omit', redirect:'error', cache:'no-store',
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Workspace request failed.');
+  return data;
+}
+
+async function workspaceAuth(register) {
+  const status = document.getElementById('ws-status');
+  const pass = document.getElementById('ws-password');
+  const invite = document.getElementById('ws-invite');
+  const payload = {username:document.getElementById('ws-user').value,password:pass.value};
+  if (register) payload.invite = invite.value;
+  pass.value = '';
+  invite.value = '';
+  const session = remoteSession;
+  workspaceToken = '';
+  try {
+    const data = await workspaceRequest(register ? 'register' : 'login', payload, '');
+    if (session !== remoteSession) return;
+    if (register) status.textContent = 'Registered. Log in to use your workspace.';
+    else {
+      if (typeof data.token !== 'string') throw new Error('Missing session token');
+      workspaceToken = data.token;
+      status.textContent = 'Logged in. Session retained in memory only.';
+    }
+  } catch(error) { if (session === remoteSession) status.textContent = error.message; }
+}
+
+async function workspaceAction(action) {
+  const status = document.getElementById('ws-status');
+  const session = remoteSession;
+  if (!workspaceToken) { status.textContent = 'Log in first.'; return; }
+  let payload = {};
+  if (action === 'save' || action === 'delete') payload.id = document.getElementById('ws-doc-id').value;
+  if (action === 'save') payload.text = document.getElementById('ws-doc-text').value;
+  if (action === 'ask') payload.question = document.getElementById('ws-question').value;
+  try {
+    const token = workspaceToken;
+    if (action === 'logout') workspaceToken = '';
+    const data = await workspaceRequest(action, payload, token);
+    if (session === remoteSession) status.textContent = JSON.stringify(data,null,2);
+  } catch(error) { if (session === remoteSession) status.textContent = error.message; }
 }
 
 // ── Agents ─────────────────────────────────────────────

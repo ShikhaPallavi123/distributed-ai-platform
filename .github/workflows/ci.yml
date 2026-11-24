@@ -115,6 +115,24 @@ jobs:
             http-study.json
             routing-study.json
 
+  sdk:
+    name: Build and install Python SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install build
+      - run: python -m build
+      - run: pip install dist/*.whl
+      - name: Verify installed SDK outside source tree
+        run: cd /tmp && python -c "from apicalai_sdk import Client; assert Client('http://127.0.0.1:8080').origin"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apicalai-sdk
+          path: dist/
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest

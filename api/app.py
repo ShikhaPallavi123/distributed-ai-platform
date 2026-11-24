@@ -15,11 +15,15 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import traceback
 import hmac
+from collections import OrderedDict
 from api.storage import Storage
 from inference.demo_sentiment import DemoSentimentModel
 from inference.ollama_adapter import OllamaAdapter, OllamaBackendError
 from inference.adaptive_router import route, NoEligibleModel
 from inference.model_pool import load_pool
+from inference.grounded import retrieve
+from inference.safe_tools import run_tool_workflow
+from api.workspaces import WorkspaceStore, AccessDenied, QuotaExceeded
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +234,9 @@ if ollama_client:
     )
 
 
+workspace_store = (WorkspaceStore(os.environ["APICALAI_WORKSPACE_DB"], int(os.getenv("APICALAI_WORKSPACE_QUOTA", "100")))
+                   if os.getenv("APICALAI_WORKSPACE_DB") else None)
+
 llm_pool, calibration_id = load_pool(os.environ.get("APICALAI_MODEL_POOL", ""))
 for alias in llm_pool:
     state.models[alias] = ModelInfo(alias, "1", "Ollama", [], [], 0, status="configured")
@@ -242,6 +249,24 @@ for alias in llm_pool:
 # ---------------------------------------------------------------------------
 # Request handler
 # ---------------------------------------------------------------------------
+
+
+# Local beta abuse guard, keyed by the actual socket peer (not spoofable XFF).
+# Reverse-proxy deployments must add their own trusted rate limiting.
+_auth_attempts = OrderedDict()
+
+
+def allow_auth_attempt(peer, now=None):
+    now = time.monotonic() if now is None else now
+    previous = _auth_attempts.pop(peer, [])
+    previous = [stamp for stamp in previous if now - stamp < 60]
+    allowed = len(previous) < 5
+    if allowed:
+        previous.append(now)
+    _auth_attempts[peer] = previous
+    while len(_auth_attempts) > 2048:
+        _auth_attempts.popitem(last=False)
+    return allowed
 
 
 class APIHandler(BaseHTTPRequestHandler):
@@ -375,11 +400,17 @@ class APIHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
+        if path.startswith("/api/workspace/"):
+            self._workspace(path)
+            return
         if not self._require_api_key():
             return
         routes = {
             "/api/inference": self._run_inference,
             "/api/route": self._route_inference,
+            "/api/chat": self._chat,
+            "/api/retrieve": self._retrieve,
+            "/api/tools/run": self._tools_run,
             "/api/models": self._register_model,
             "/api/workers": self._register_worker,
             "/api/agents/run": self._run_agent,
@@ -684,6 +715,97 @@ class APIHandler(BaseHTTPRequestHandler):
             return
         state.workers[worker.worker_id] = worker
         self._send_json({"status": "registered", "worker": asdict(worker)}, 201)
+
+    def _workspace(self, path):
+        if workspace_store is None:
+            self._send_json({"error": "Private workspaces are disabled"}, 503)
+            return
+        if path in ("/api/workspace/register", "/api/workspace/login"):
+            if not allow_auth_attempt(self.client_address[0]):
+                self._send_json({"error": "Too many authentication attempts; try again later"}, 429)
+                return
+        try:
+            body = self._read_body()
+            if path == "/api/workspace/register":
+                invite = os.getenv("APICALAI_WORKSPACE_INVITE", "")
+                given = body.get("invite", "")
+                if not invite or not isinstance(given, str) or not hmac.compare_digest(invite, given):
+                    raise AccessDenied("Registration requires an operator invite")
+                result = workspace_store.register(body.get("username"), body.get("password"))
+            elif path == "/api/workspace/login":
+                result = workspace_store.login(body.get("username"), body.get("password"))
+            else:
+                header = self.headers.get("Authorization", "")
+                if not header.startswith("Bearer "):
+                    raise AccessDenied("Bearer session required")
+                token = header[7:]
+                account = workspace_store.authenticate(token)
+                if path == "/api/workspace/logout":
+                    workspace_store.logout(token)
+                    result = {"logged_out": True}
+                elif path == "/api/workspace/documents":
+                    result = {"documents": [{"id": doc["id"]} for doc in workspace_store.documents(account)]}
+                elif path == "/api/workspace/save":
+                    result = workspace_store.save_document(account, body.get("id"), body.get("text"))
+                elif path == "/api/workspace/delete":
+                    result = workspace_store.delete_document(account, body.get("id"))
+                elif path == "/api/workspace/ask":
+                    result = workspace_store.ask(account, body.get("question"))
+                else:
+                    self._send_json({"error": "Not found"}, 404)
+                    return
+            self._send_json(result)
+        except AccessDenied as exc:
+            self._send_json({"error": str(exc)}, 401)
+        except QuotaExceeded as exc:
+            self._send_json({"error": str(exc)}, 429)
+        except (ValueError, TypeError) as exc:
+            self._send_json({"error": str(exc)}, 400)
+
+    def _retrieve(self):
+        body = self._read_body()
+        self._send_json(retrieve(body.get("question"), body.get("documents"), body.get("limit", 3)))
+
+    def _tools_run(self):
+        body = self._read_body()
+        self._send_json(run_tool_workflow(body.get("steps")))
+
+    def _chat(self):
+        body = self._read_body()
+        if ollama_client is None:
+            self._send_json({"error": "Configure an Ollama chat model first"}, 503)
+            return
+        streaming = body.get("stream", False)
+        if not isinstance(streaming, bool):
+            raise ValueError("stream must be boolean")
+        try:
+            result = ollama_client.chat(body.get("messages"), stream=streaming)
+        except OllamaBackendError:
+            self._send_json({"error": "Chat backend unavailable"}, 503)
+            return
+        if not streaming:
+            self._send_json(result)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        origin = self.headers.get("Origin")
+        if origin and origin == os.environ.get("APICALAI_ALLOWED_ORIGIN", ""):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        self.end_headers()
+        try:
+            for chunk in result:
+                self.wfile.write(json.dumps(chunk).encode() + b"\n")
+                self.wfile.flush()
+        except OllamaBackendError:
+            self.wfile.write(b'{"error":"Chat backend unavailable","done":false}\n')
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            result.close()
+            self.close_connection = True
 
     def _run_agent(self):
         """Do not report synthetic agent steps as successful execution."""

@@ -7,7 +7,7 @@ import argparse
 import json
 import os
 import threading
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from apicalai_cli import request
 from inference.ollama_adapter import OllamaAdapter
@@ -56,11 +56,27 @@ def run(model, url):
                 raise RuntimeError("No actual model text returned")
         if routed["selected_model"] != "llm-smoke":
             raise RuntimeError("Unexpected route")
+        messages = [{"role": "user", "content": "Say hello briefly."}]
+        chat = request(base, "/api/chat", {"messages": messages}, key)
+        headers = {"Content-Type": "application/json"}
+        if key:
+            headers["Authorization"] = "Bearer " + key
+        chat_request = Request(
+            base + "/api/chat",
+            data=json.dumps({"messages": messages, "stream": True}).encode(),
+            headers=headers,
+        )
+        with urlopen(chat_request, timeout=120) as response:
+            chunks = [json.loads(line) for line in response]
+        if not chat["text"].strip() or not chunks or not chunks[-1].get("done"):
+            raise RuntimeError("Live chat did not complete")
+        if not any(chunk.get("text") for chunk in chunks):
+            raise RuntimeError("No actual streamed text")
         with urlopen(url.rstrip("/") + "/api/tags", timeout=10) as response:
             tags = json.load(response)
         return {"scope": "live_pretrained_model_smoke_test", "model": model,
                 "calibration": calibration, "direct": direct, "routed": routed,
-                "installed_model_metadata": tags,
+                "installed_model_metadata": tags, "chat": chat, "chat_stream": chunks,
                 "note": "A single real CPU model; no quality or multi-GPU performance claim."}
     finally:
         server.shutdown()
