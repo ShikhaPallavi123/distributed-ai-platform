@@ -658,7 +658,7 @@ async function submitInference() {
 
 async function submitBatch() {
   const model = document.getElementById('batch-model').value;
-  const inputs = document.getElementById('batch-input').value.split('\\n').map(t => t.trim()).filter(Boolean);
+  const inputs = document.getElementById('batch-input').value.split('\n').map(t => t.trim()).filter(Boolean);
   const el = document.getElementById('batch-result');
   el.textContent = 'Processing batch...';
   if (inputs.length < 1 || inputs.length > 32) {
