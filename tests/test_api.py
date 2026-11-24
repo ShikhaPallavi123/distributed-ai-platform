@@ -200,6 +200,40 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(status, 501)
         self.assertEqual(body['code'], 'AGENT_NOT_DEPLOYED')
 
+    def test_api_key_protects_inference(self):
+        request = {"model": "demo-sentiment-v1", "input": {"text": "wonderful great"}}
+        with mock.patch.dict(os.environ, {"APICALAI_API_KEY": "test-client-key"}):
+            status, _ = self._post("/api/inference", request)
+            self.assertEqual(status, 401)
+            status, body = self._post(
+                "/api/inference", request,
+                headers={"Authorization": "Bearer test-client-key"},
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(body["output"]["label"], "positive")
+            self.assertEqual(self._get("/api/health")[0], 200)
+            self.assertEqual(self._get("/api/models")[0], 401)
+
+    def test_admin_token_distinct_from_client_key(self):
+        with mock.patch.dict(os.environ, {
+            "APICALAI_API_KEY": "client-only",
+            "APICALAI_ADMIN_TOKEN": "admin-only",
+        }):
+            status, _ = self._post(
+                "/api/models", {"name": "denied-test"},
+                headers={"Authorization": "Bearer client-only"},
+            )
+            self.assertEqual(status, 403)
+            status, _ = self._post(
+                "/api/models", {"name": "demo-sentiment-v1"},
+                headers={"Authorization": "Bearer admin-only"},
+            )
+            self.assertEqual(status, 409)
+
+    def test_invalid_json_shape_and_unknown_route(self):
+        self.assertEqual(self._post("/api/inference", [1, 2])[0], 400)
+        self.assertEqual(self._post("/api/inference", {"model": []})[0], 400)
+        self.assertEqual(self._get("/api/unknown")[0], 404)
 
 if __name__ == "__main__":
     unittest.main()

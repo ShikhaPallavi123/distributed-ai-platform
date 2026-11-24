@@ -36,13 +36,13 @@ def measure_throughput(predict_fn, payloads, batch_sizes=(1, 8, 32, 128),
     return {"dimension": "throughput", "method": "sequential_grouped_calls", "results": results}
 
 
-def measure_latency(predict_fn, payloads, concurrency_levels=(1, 10, 50),
+def measure_latency(predict_fn, payloads, concurrency_levels=(1,),
                     iterations=200):
     """Dimension 2: Latency — p50, p95, p99 under varying concurrency.
 
     Note: True concurrency requires threads/processes. This measures
     sequential latency at different queue depths as a baseline.
-    For thread-based concurrency, use measure_latency_concurrent().
+    For real concurrency use a separate HTTP benchmark.
     """
     results = {}
     for concurrency in concurrency_levels:

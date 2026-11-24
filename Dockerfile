@@ -31,4 +31,5 @@ EXPOSE 8080
 
 # Default: run the API server
 ENV PYTHONPATH=/app
+ENV APICALAI_HOST=0.0.0.0
 CMD ["python", "-m", "api.app"]

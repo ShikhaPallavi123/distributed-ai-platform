@@ -250,6 +250,7 @@ class APIHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
 
@@ -267,7 +268,11 @@ class APIHandler(BaseHTTPRequestHandler):
     def _require_api_key(self) -> bool:
         """Optional deployment-wide shared API key; health remains public."""
         token = os.environ.get("APICALAI_API_KEY", "")
-        if token and not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
+        provided = self.headers.get("Authorization", "")
+        admin = os.environ.get("APICALAI_ADMIN_TOKEN", "")
+        valid = hmac.compare_digest(provided, "Bearer " + token)
+        valid_admin = bool(admin) and hmac.compare_digest(provided, "Bearer " + admin)
+        if token and not (valid or valid_admin):
             self._send_json({"error": "Valid API key required"}, 401)
             return False
         return True
@@ -455,6 +460,9 @@ class APIHandler(BaseHTTPRequestHandler):
                 input_data=body.get("input", ""),
                 parameters=body.get("parameters", {}),
             )
+            if not isinstance(req.model, str) or not req.model:
+                self._send_json({"error": "model must be a non-empty string"}, 400)
+                return
             if req.model not in state.models:
                 self._send_json({"error": f"Model '{req.model}' not found"}, 404)
                 return
@@ -528,6 +536,9 @@ class APIHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": "Every request must be an object"}, 400)
                     return
                 model_name = item.get("model")
+                if not isinstance(model_name, str) or not model_name:
+                    self._send_json({"error": "model must be a non-empty string"}, 400)
+                    return
                 if model_name not in state.models:
                     self._send_json({"error": "Model not found: " + str(model_name)}, 404)
                     return
