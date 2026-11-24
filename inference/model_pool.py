@@ -2,6 +2,7 @@
 import json
 from inference.adaptive_router import Candidate
 from inference.ollama_adapter import OllamaAdapter
+from inference.endpoint_recovery import RecoveringEndpoint
 
 
 def load_pool(config):
@@ -28,5 +29,5 @@ def load_pool(config):
             raise ValueError("All models must share one calibration_id")
         protocol = evidence
         adapter = OllamaAdapter(row["model"], row.get("url", "http://127.0.0.1:11434"))
-        result[name] = Candidate(name, row["accuracy"], row["sample_count"], row["median_latency_ms"], adapter.generate)
+        result[name] = Candidate(name, row["accuracy"], row["sample_count"], row["median_latency_ms"], RecoveringEndpoint(adapter.generate))
     return result, protocol

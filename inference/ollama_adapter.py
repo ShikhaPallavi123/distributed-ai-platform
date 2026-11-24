@@ -117,3 +117,22 @@ class OllamaAdapter:
             raise OllamaBackendError("Chat stream ended without completion")
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise OllamaBackendError("Chat stream failed") from exc
+
+    def embed(self, texts):
+        """Actual Ollama embedding API for a separately configured embedding model."""
+        if not isinstance(texts, list) or not 1 <= len(texts) <= 16:
+            raise ValueError("provide 1–16 embedding inputs")
+        if any(not isinstance(t, str) or not t.strip() or len(t) > 2000 for t in texts):
+            raise ValueError("embedding input must contain 1–2000 characters")
+        payload = json.dumps({"model": self.model, "input": texts, "truncate": False}).encode()
+        request = Request(self.base_url + "/api/embed", data=payload,
+                          headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                result = json.load(response)
+            vectors = result["embeddings"]
+            if not isinstance(vectors, list) or len(vectors) != len(texts):
+                raise ValueError("invalid embeddings")
+            return vectors
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise OllamaBackendError("Embedding backend unavailable") from exc

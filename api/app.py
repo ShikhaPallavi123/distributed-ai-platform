@@ -23,6 +23,8 @@ from inference.adaptive_router import route, NoEligibleModel
 from inference.model_pool import load_pool
 from inference.grounded import retrieve
 from inference.safe_tools import run_tool_workflow
+from inference.grounded_agent import run_agent
+from inference.semantic_retrieval import semantic_retrieve, verify_citations
 from api.workspaces import WorkspaceStore, AccessDenied, QuotaExceeded
 
 
@@ -237,6 +239,12 @@ if ollama_client:
 workspace_store = (WorkspaceStore(os.environ["APICALAI_WORKSPACE_DB"], int(os.getenv("APICALAI_WORKSPACE_QUOTA", "100")))
                    if os.getenv("APICALAI_WORKSPACE_DB") else None)
 
+embedding_model = os.getenv("APICALAI_EMBED_MODEL")
+embedding_client = (
+    OllamaAdapter(embedding_model, os.getenv("APICALAI_OLLAMA_URL", "http://127.0.0.1:11434"))
+    if embedding_model else None
+)
+
 llm_pool, calibration_id = load_pool(os.environ.get("APICALAI_MODEL_POOL", ""))
 for alias in llm_pool:
     state.models[alias] = ModelInfo(alias, "1", "Ollama", [], [], 0, status="configured")
@@ -410,6 +418,8 @@ class APIHandler(BaseHTTPRequestHandler):
             "/api/route": self._route_inference,
             "/api/chat": self._chat,
             "/api/retrieve": self._retrieve,
+            "/api/semantic-retrieve": self._semantic_retrieve,
+            "/api/verify-citations": self._verify_citations,
             "/api/tools/run": self._tools_run,
             "/api/models": self._register_model,
             "/api/workers": self._register_worker,
@@ -766,6 +776,24 @@ class APIHandler(BaseHTTPRequestHandler):
         body = self._read_body()
         self._send_json(retrieve(body.get("question"), body.get("documents"), body.get("limit", 3)))
 
+    def _semantic_retrieve(self):
+        body = self._read_body()
+        if embedding_client is None:
+            self._send_json({"error": "Configure APICALAI_EMBED_MODEL first"}, 503)
+            return
+        try:
+            result = semantic_retrieve(embedding_client.embed, body.get("question"),
+                                       body.get("documents"), body.get("limit", 3),
+                                       body.get("min_similarity", .35))
+        except OllamaBackendError:
+            self._send_json({"error": "Embedding backend unavailable"}, 503)
+            return
+        self._send_json(result)
+
+    def _verify_citations(self):
+        body = self._read_body()
+        self._send_json(verify_citations(body.get("documents"), body.get("citations")))
+
     def _tools_run(self):
         body = self._read_body()
         self._send_json(run_tool_workflow(body.get("steps")))
@@ -808,11 +836,18 @@ class APIHandler(BaseHTTPRequestHandler):
             self.close_connection = True
 
     def _run_agent(self):
-        """Do not report synthetic agent steps as successful execution."""
-        self._send_json({
-            "error": "Agent execution has not been connected to a real backend.",
-            "code": "AGENT_NOT_DEPLOYED",
-        }, 501)
+        if ollama_client is None:
+            self._send_json({"error": "Configure an Ollama model first",
+                             "code": "AGENT_NOT_DEPLOYED"}, 501)
+            return
+        body = self._read_body()
+        try:
+            result = run_agent(ollama_client.generate, body.get("goal"),
+                               body.get("documents"), body.get("max_steps", 3))
+        except OllamaBackendError:
+            self._send_json({"error": "Agent model unavailable"}, 503)
+            return
+        self._send_json(result)
 
     def _list_agents(self):
         self._send_json({"tasks": [asdict(t) for t in state.agent_tasks.values()]})
