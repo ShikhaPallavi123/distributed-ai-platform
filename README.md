@@ -1,8 +1,10 @@
 # ⚡ ApicalAI — Distributed AI Inference Engine
 
-> A production-grade, full-stack distributed AI inference engine built **entirely from scratch** — from OS-level memory allocators to agentic AI orchestration. Zero ML framework dependencies. Pure Python + NumPy.
+> An educational and research-oriented AI inference systems prototype built largely from first principles. Its lightweight NumPy backend and optional Ollama integration are development features, not a production deployment.
 
-> **Development status (November 2026):** The public GitHub Pages site is a **static demo with illustrative data**, not a live GPU cluster. The backend currently serves a small real NumPy sentiment classifier and optionally connects to a locally configured Ollama pretrained language model. Distributed scheduling, live GPU measurements, and production readiness are not yet validated. See [Real Inference MVP](docs/REAL_INFERENCE_MVP.md) for exact working features, setup, limitations and testing.\n\n[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-ApicalAI_Dashboard-00d4aa?style=for-the-badge)](https://shikhapallavi123.github.io/distributed-ai-platform/)
+> **Development status (November 2026):** The GitHub Pages site now supports **real local sentiment classification in the visitor's browser** using a small model trained from 12 examples. It does **not** host a GPU cluster, a language model, or the Python API. Browser-session metrics are measured, not simulated remote telemetry. The backend separately supports NumPy inference and an optional local Ollama model. See [Browser Demo](docs/BROWSER_LIVE_DEMO.md) and [Real Inference MVP](docs/REAL_INFERENCE_MVP.md).
+
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-ApicalAI_Dashboard-00d4aa?style=for-the-badge)](https://shikhapallavi123.github.io/distributed-ai-platform/)
 
 [![CI/CD](https://github.com/ShikhaPallavi123/distributed-ai-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/ShikhaPallavi123/distributed-ai-platform/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -250,28 +252,34 @@ mem.defragment()  # Coalesce free blocks
 
 ---
 
-## 📊 Live Dashboard
+## 📊 Website and browser inference
 
-> **[👉 Try the Live Demo](https://shikhapallavi123.github.io/distributed-ai-platform/)** — no installation needed!
+**[Try the Interactive Demo](https://shikhapallavi123.github.io/distributed-ai-platform/)** — no installation required.
 
-The full-stack dashboard includes:
+The published site runs a **tiny real sentiment classifier** in the browser.
+Visit **Inference**, enter a sentence, and run single or batch predictions.
+The model is trained using JavaScript on the device. Its latency, request count,
+and throughput show **only observed work in the current browser session**.
 
-- **Real-time metrics** — requests/sec, latency percentiles, GPU utilization
-- **Worker fleet** — health status, load, task completion
-- **Model registry** — deploy, monitor, and manage AI models
-- **Inference playground** — run single/batch inference from the UI
-- **Agentic AI console** — execute agents with reasoning trace
-- **Cluster topology** — visual map of distributed nodes
-- **Architecture viewer** — interactive 8-layer stack diagram
-- **System terminal** — built-in command console
+GitHub Pages is static hosting. It cannot run the Python API, serve a full
+language model or provision a GPU cluster. Agent execution and custom model
+deployment need a separately deployed backend. Other screens show architecture
+and available code concepts, not proof of deployed infrastructure.
+
+For limitations, privacy behavior and tests, see
+[Live Browser Demo Documentation](docs/BROWSER_LIVE_DEMO.md).
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# Run all Python tests
 python -m unittest discover tests/ -v
+
+# Test browser model and static website behavior
+node tests/browser_model.test.cjs
+node tests/browser_dashboard.test.cjs
 
 # Test specific module
 python -m unittest tests.test_neural -v
