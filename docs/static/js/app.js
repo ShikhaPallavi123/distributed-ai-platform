@@ -196,7 +196,7 @@ function renderDashboard() {
   const gpuPct = totalGPU ? Math.round((usedGPU / totalGPU) * 100) : 0;
 
   return `
-    ${state.browserMode ? '<div style="padding:12px; margin-bottom:12px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px;">LIVE LOCAL MODEL — Sentiment predictions run on your device, not on a remote AI server. Metrics below reflect only this browser session; no GPU cluster is connected.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
+    ${state.browserMode ? '<div style="padding:12px; margin-bottom:12px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px;">LIVE LOCAL MODEL — Sentiment predictions run on your device, not on a remote AI server. Metrics below reflect only this browser session; no GPU cluster is connected. <button class="btn btn-primary btn-sm" style="margin-left:12px;" onclick="navigate(&quot;inference&quot;)">Try a real prediction</button></div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Dashboard</h1>
     <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Real-time inference engine monitoring</p>
 
@@ -743,12 +743,12 @@ function execCommand() {
   metrics  — Current performance metrics
   arch     — Architecture summary
   clear    — Clear terminal`,
-    status: () => `<span class="terminal-success">System Status: ONLINE</span>
+    status: () => `<span class="terminal-success">${state.browserMode ? 'Local model ready (no remote server)' : 'Backend connected'}</span>
   Workers: ${state.workers.length} active
   Models: ${state.models.length} registered
   Uptime: ${state.demoMode ? 'sample preview' : Math.floor((state.metrics.uptime_seconds || 0) / 60) + 'm'}`,
     models: () => state.models.map(m => `  <span class="terminal-success">●</span> ${m.name} [${m.status}]`).join('\n'),
-    workers: () => state.workers.map(w => `  <span class="${w.status === 'healthy' ? 'terminal-success' : 'terminal-error'}">●</span> ${w.id} — ${w.status} (${w.current_load}% load)`).join('\n'),
+    workers: () => state.workers.map(w => `  <span class="${w.status === 'healthy' ? 'terminal-success' : 'terminal-error'}">●</span> ${w.id} — ${w.status} (${w.current_load == null ? 'load not measured' : w.current_load + '% load'})`).join('\n'),
     metrics: () => `  Requests: ${fmt(state.metrics.total_requests || 0)}
   RPS: ${state.metrics.requests_per_second || 0}
   P50: ${(state.latency.p50 || 0).toFixed(1)}ms
