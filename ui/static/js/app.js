@@ -515,6 +515,7 @@ function renderRemote() {
         <textarea id="retrieve-doc" rows="5" maxlength="20000" placeholder="Paste a document" style="width:100%;padding:10px;margin:12px 0;"></textarea>
         <input id="retrieve-query" maxlength="2000" placeholder="Question about the document" style="width:100%;padding:10px;margin-bottom:12px;">
         <button class="btn btn-primary" onclick="runRetrieval()">Find source passages</button>
+        <button class="btn btn-secondary" onclick="runRetrieval(true)">Semantic retrieval (requires embedding model)</button>
         <pre id="retrieve-result" style="white-space:pre-wrap;overflow-wrap:anywhere;"></pre>
       </div>
     </div>
@@ -689,10 +690,10 @@ async function sendChat() {
   }
 }
 
-async function runRetrieval() {
+async function runRetrieval(semantic = false) {
   const output = document.getElementById('retrieve-result');
   try {
-    const result = await remoteRequest('/api/retrieve', {
+    const result = await remoteRequest(semantic ? '/api/semantic-retrieve' : '/api/retrieve', {
       question:document.getElementById('retrieve-query').value,
       documents:[{id:'document-1',text:document.getElementById('retrieve-doc').value}],
     });
@@ -1045,25 +1046,22 @@ async function submitBatch() {
 
 async function runAgent() {
   const task = document.getElementById('agent-task').value;
-  const maxSteps = document.getElementById('agent-steps').value;
+  const steps = Number(document.getElementById('agent-steps').value);
   const el = document.getElementById('agent-result');
   const trace = document.getElementById('reasoning-trace');
-  el.textContent = 'Checking agent availability...';
-  if (state.browserMode) {
-    el.textContent = 'Agent execution requires a deployed backend. This page currently runs only a local sentiment classifier.';
-    return;
-  }
-  trace.textContent = 'Agent execution trace is only available after a real backend is connected.';
-  const r = await api('/api/agents/run', {
-    method: 'POST',
-    body: JSON.stringify({ goal: task, max_steps: parseInt(maxSteps) }),
-  });
-  if (!r || r.error || !r.result) {
-    el.textContent = (r && r.error) || 'Agent backend unavailable.';
-    return;
-  }
-  el.textContent = JSON.stringify(r.result, null, 2);
-  trace.textContent = JSON.stringify(r.steps || [], null, 2);
+  el.textContent = 'Running bounded agent...';
+  trace.textContent = '';
+  try {
+    const payload = {goal: task, max_steps: Math.max(1, Math.min(5, steps || 3))};
+    const r = remoteConnection.origin
+      ? await remoteRequest('/api/agents/run', payload)
+      : state.browserMode ? null : await api('/api/agents/run', {
+        method:'POST', body:JSON.stringify(payload),
+      });
+    if (!r || r.error || !r.result) throw new Error(r && r.error || 'Connect a configured LLM backend using Remote Inference first.');
+    el.textContent = JSON.stringify(r.result, null, 2);
+    trace.textContent = JSON.stringify(r.steps || [], null, 2);
+  } catch(error) { el.textContent = error.message; }
 }
 
 function execCommand() {
