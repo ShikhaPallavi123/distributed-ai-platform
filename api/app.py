@@ -18,6 +18,8 @@ import hmac
 from api.storage import Storage
 from inference.demo_sentiment import DemoSentimentModel
 from inference.ollama_adapter import OllamaAdapter, OllamaBackendError
+from inference.adaptive_router import route, NoEligibleModel
+from inference.model_pool import load_pool
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +230,13 @@ if ollama_client:
     )
 
 
+llm_pool, calibration_id = load_pool(os.environ.get("APICALAI_MODEL_POOL", ""))
+for alias in llm_pool:
+    state.models[alias] = ModelInfo(alias, "1", "Ollama", [], [], 0, status="configured")
+    state.workers[alias] = WorkerInfo(alias, "configured-endpoint", 11434, status="configured",
+                                     gpu_memory_total=0.0, models_loaded=[alias])
+
+
 # ---------------------------------------------------------------------------
 # Request handler
 # ---------------------------------------------------------------------------
@@ -368,6 +377,7 @@ class APIHandler(BaseHTTPRequestHandler):
             return
         routes = {
             "/api/inference": self._run_inference,
+            "/api/route": self._route_inference,
             "/api/models": self._register_model,
             "/api/workers": self._register_worker,
             "/api/agents/run": self._run_agent,
@@ -394,7 +404,7 @@ class APIHandler(BaseHTTPRequestHandler):
             if not self._require_admin():
                 return
             name = path.split("/")[-1]
-            if name in ("demo-sentiment-v1", "ollama-local"):
+            if name in ("demo-sentiment-v1", "ollama-local") or name in llm_pool:
                 self._send_json({"error": "Built-in models cannot be deleted"}, 409)
                 return
             if name in state.models:
@@ -477,6 +487,14 @@ class APIHandler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     self._send_json({"error": str(exc)}, 400)
                     return
+            elif req.model in llm_pool:
+                worker_id = req.model
+                try:
+                    prediction = llm_pool[req.model].predict(text_input)
+                except OllamaBackendError as exc:
+                    state.metrics["total_errors"] += 1
+                    self._send_json({"error": str(exc), "code": "MODEL_UNAVAILABLE"}, 503)
+                    return
             elif req.model == "ollama-local" and ollama_client is not None:
                 worker_id = "ollama-backend"
                 try:
@@ -516,6 +534,33 @@ class APIHandler(BaseHTTPRequestHandler):
             state.metrics["total_errors"] += 1
             traceback.print_exc()
             self._send_json({"error": "Internal inference error"}, 500)
+
+    def _route_inference(self):
+        body = self._read_body()
+        if not llm_pool:
+            self._send_json({"error": "No calibrated LLM pool configured"}, 503)
+            return
+        try:
+            result = route(
+                llm_pool.values(), body.get("text"),
+                body.get("min_quality", 0.5), body.get("max_latency_ms"),
+                recoverable_errors=(OllamaBackendError,),
+            )
+        except NoEligibleModel as exc:
+            state.metrics["total_errors"] += 1
+            self._send_json({"error": str(exc), "code": "NO_ELIGIBLE_MODEL"}, 503)
+            return
+        selected = result["selected_model"]
+        latency = result["actual_latency_ms"]
+        response = InferenceResponse(str(uuid.uuid4()), selected, result["output"], latency, selected)
+        state.persist_usage(response)
+        state.metrics["total_requests"] += 1
+        state.record_latency(latency)
+        state.workers[selected].tasks_completed += 1
+        result["request_id"] = response.request_id
+        result["calibration_id"] = calibration_id
+        result["quality_scope"] = "operator_supplied_task_calibration_not_per_request_guarantee"
+        self._send_json(result)
 
     def _batch_inference(self):
         """Execute a bounded batch using the real NumPy classifier.
