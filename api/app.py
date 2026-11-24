@@ -233,8 +233,10 @@ if ollama_client:
 llm_pool, calibration_id = load_pool(os.environ.get("APICALAI_MODEL_POOL", ""))
 for alias in llm_pool:
     state.models[alias] = ModelInfo(alias, "1", "Ollama", [], [], 0, status="configured")
-    state.workers[alias] = WorkerInfo(alias, "configured-endpoint", 11434, status="configured",
-                                     gpu_memory_total=0.0, models_loaded=[alias])
+    state.workers[alias] = WorkerInfo(
+        alias, "configured-endpoint", 11434, status="configured",
+        gpu_memory_total=0.0, models_loaded=[alias],
+    )
 
 
 # ---------------------------------------------------------------------------
