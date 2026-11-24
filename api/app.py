@@ -22,6 +22,7 @@ from inference.adaptive_router import route, NoEligibleModel
 from inference.model_pool import load_pool
 from inference.grounded import retrieve
 from inference.safe_tools import run_tool_workflow
+from api.workspaces import WorkspaceStore, AccessDenied, QuotaExceeded
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +233,9 @@ if ollama_client:
     )
 
 
+workspace_store = (WorkspaceStore(os.environ["APICALAI_WORKSPACE_DB"], int(os.getenv("APICALAI_WORKSPACE_QUOTA", "100")))
+                   if os.getenv("APICALAI_WORKSPACE_DB") else None)
+
 llm_pool, calibration_id = load_pool(os.environ.get("APICALAI_MODEL_POOL", ""))
 for alias in llm_pool:
     state.models[alias] = ModelInfo(alias, "1", "Ollama", [], [], 0, status="configured")
@@ -377,6 +381,9 @@ class APIHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
+        if path.startswith("/api/workspace/"):
+            self._workspace(path)
+            return
         if not self._require_api_key():
             return
         routes = {
@@ -689,6 +696,45 @@ class APIHandler(BaseHTTPRequestHandler):
             return
         state.workers[worker.worker_id] = worker
         self._send_json({"status": "registered", "worker": asdict(worker)}, 201)
+
+    def _workspace(self, path):
+        if workspace_store is None:
+            self._send_json({"error": "Private workspaces are disabled"}, 503)
+            return
+        try:
+            body = self._read_body()
+            if path == "/api/workspace/register":
+                invite = os.getenv("APICALAI_WORKSPACE_INVITE", "")
+                given = body.get("invite", "")
+                if not invite or not isinstance(given, str) or not hmac.compare_digest(invite, given):
+                    raise AccessDenied("Registration requires an operator invite")
+                result = workspace_store.register(body.get("username"), body.get("password"))
+            elif path == "/api/workspace/login":
+                result = workspace_store.login(body.get("username"), body.get("password"))
+            else:
+                token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+                account = workspace_store.authenticate(token)
+                if path == "/api/workspace/logout":
+                    workspace_store.logout(token)
+                    result = {"logged_out": True}
+                elif path == "/api/workspace/documents":
+                    result = {"documents": [{"id": doc["id"]} for doc in workspace_store.documents(account)]}
+                elif path == "/api/workspace/save":
+                    result = workspace_store.save_document(account, body.get("id"), body.get("text"))
+                elif path == "/api/workspace/delete":
+                    result = workspace_store.delete_document(account, body.get("id"))
+                elif path == "/api/workspace/ask":
+                    result = workspace_store.ask(account, body.get("question"))
+                else:
+                    self._send_json({"error": "Not found"}, 404)
+                    return
+            self._send_json(result)
+        except AccessDenied as exc:
+            self._send_json({"error": str(exc)}, 401)
+        except QuotaExceeded as exc:
+            self._send_json({"error": str(exc)}, 429)
+        except (ValueError, TypeError) as exc:
+            self._send_json({"error": str(exc)}, 400)
 
     def _retrieve(self):
         body = self._read_body()
