@@ -15,6 +15,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import traceback
 import hmac
+from collections import OrderedDict
 from api.storage import Storage
 from inference.demo_sentiment import DemoSentimentModel
 from inference.ollama_adapter import OllamaAdapter, OllamaBackendError
@@ -248,6 +249,24 @@ for alias in llm_pool:
 # ---------------------------------------------------------------------------
 # Request handler
 # ---------------------------------------------------------------------------
+
+
+# Local beta abuse guard, keyed by the actual socket peer (not spoofable XFF).
+# Reverse-proxy deployments must add their own trusted rate limiting.
+_auth_attempts = OrderedDict()
+
+
+def allow_auth_attempt(peer, now=None):
+    now = time.monotonic() if now is None else now
+    previous = _auth_attempts.pop(peer, [])
+    previous = [stamp for stamp in previous if now - stamp < 60]
+    allowed = len(previous) < 5
+    if allowed:
+        previous.append(now)
+    _auth_attempts[peer] = previous
+    while len(_auth_attempts) > 2048:
+        _auth_attempts.popitem(last=False)
+    return allowed
 
 
 class APIHandler(BaseHTTPRequestHandler):
@@ -701,6 +720,10 @@ class APIHandler(BaseHTTPRequestHandler):
         if workspace_store is None:
             self._send_json({"error": "Private workspaces are disabled"}, 503)
             return
+        if path in ("/api/workspace/register", "/api/workspace/login"):
+            if not allow_auth_attempt(self.client_address[0]):
+                self._send_json({"error": "Too many authentication attempts; try again later"}, 429)
+                return
         try:
             body = self._read_body()
             if path == "/api/workspace/register":
@@ -712,7 +735,10 @@ class APIHandler(BaseHTTPRequestHandler):
             elif path == "/api/workspace/login":
                 result = workspace_store.login(body.get("username"), body.get("password"))
             else:
-                token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+                header = self.headers.get("Authorization", "")
+                if not header.startswith("Bearer "):
+                    raise AccessDenied("Bearer session required")
+                token = header[7:]
                 account = workspace_store.authenticate(token)
                 if path == "/api/workspace/logout":
                     workspace_store.logout(token)

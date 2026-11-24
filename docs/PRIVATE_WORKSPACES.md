@@ -22,3 +22,5 @@ endpoints still use separate shared API-key protection; no billing or universal
 per-user inference quota exists. Password recovery, throttled authentication,
 TLS, backups, audit logging, retention/deletion policy, abuse prevention and
 independent security review are required before public beta.
+
+The Remote Inference console includes the workspace controls. Login and invite inputs are cleared after use and bearer sessions are kept only in memory. A local per-peer authentication throttle allows five attempts per minute; it is not sufficient behind a public proxy. Existing workspace DB volumes may require operator migration of file ownership to UID 10001 for the new non-root container.

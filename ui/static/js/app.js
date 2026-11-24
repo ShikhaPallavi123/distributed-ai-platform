@@ -428,6 +428,7 @@ const remoteConnection = { origin: '', key: '' };
 const chatHistory = [];
 let chatRunning = false;
 let remoteSession = 0;
+let workspaceToken = '';
 
 function parseBackendOrigin(value) {
   const url = new URL(value.trim());
@@ -526,11 +527,36 @@ function renderRemote() {
         <pre id="calc-result" style="white-space:pre-wrap;overflow-wrap:anywhere;"></pre>
       </div>
     </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><span class="card-title">Private workspace beta</span></div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--text-muted);">Invite-only, operator-enabled accounts. Documents are stored on your chosen server. Do not store sensitive data.</p>
+        <label for="ws-user">Username</label>
+        <input id="ws-user" autocomplete="username" maxlength="40" style="width:100%;padding:10px;margin:6px 0;">
+        <label for="ws-password">Password</label>
+        <input id="ws-password" type="password" autocomplete="off" maxlength="128" style="width:100%;padding:10px;margin:6px 0;">
+        <label for="ws-invite">Operator invitation (registration only)</label>
+        <input id="ws-invite" type="password" autocomplete="off" style="width:100%;padding:10px;margin:6px 0;">
+        <button class="btn btn-secondary" onclick="workspaceAuth(true)">Register</button>
+        <button class="btn btn-primary" onclick="workspaceAuth(false)">Log in</button>
+        <button class="btn btn-secondary" onclick="workspaceAction('logout')">Log out</button>
+        <hr style="margin:16px 0;opacity:.3;">
+        <input id="ws-doc-id" maxlength="100" placeholder="Document ID" style="width:100%;padding:10px;margin:6px 0;">
+        <textarea id="ws-doc-text" rows="4" maxlength="20000" placeholder="Text to save in your private workspace" style="width:100%;padding:10px;margin:6px 0;"></textarea>
+        <button class="btn btn-primary" onclick="workspaceAction('save')">Save document</button>
+        <button class="btn btn-secondary" onclick="workspaceAction('documents')">List my documents</button>
+        <button class="btn btn-secondary" onclick="workspaceAction('delete')">Delete named document</button>
+        <input id="ws-question" maxlength="2000" placeholder="Ask about your documents" style="width:100%;padding:10px;margin:12px 0;">
+        <button class="btn btn-primary" onclick="workspaceAction('ask')">Retrieve evidence</button>
+        <pre id="ws-status" style="white-space:pre-wrap;overflow-wrap:anywhere;"></pre>
+      </div>
+    </div>
   `;
 }
 
 async function connectRemote() {
   remoteSession++;
+  workspaceToken = '';
   chatHistory.length = 0;
   chatRunning = false;
   const status = document.getElementById('remote-status');
@@ -556,6 +582,7 @@ async function connectRemote() {
 
 function disconnectRemote() {
   remoteSession++;
+  workspaceToken = '';
   chatHistory.length = 0;
   chatRunning = false;
   document.getElementById('chat-history').textContent = '';
@@ -681,6 +708,58 @@ async function runCalculator() {
     ]});
     output.textContent = JSON.stringify(result,null,2);
   } catch(error) { output.textContent = error.message; }
+}
+
+
+async function workspaceRequest(action, payload, token = workspaceToken) {
+  if (!remoteConnection.origin) throw new Error('Connect to your trusted backend first.');
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers.Authorization = 'Bearer ' + token;
+  const response = await fetch(remoteConnection.origin + '/api/workspace/' + action, {
+    method:'POST', headers, credentials:'omit', redirect:'error', cache:'no-store',
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Workspace request failed.');
+  return data;
+}
+
+async function workspaceAuth(register) {
+  const status = document.getElementById('ws-status');
+  const pass = document.getElementById('ws-password');
+  const invite = document.getElementById('ws-invite');
+  const payload = {username:document.getElementById('ws-user').value,password:pass.value};
+  if (register) payload.invite = invite.value;
+  pass.value = '';
+  invite.value = '';
+  const session = remoteSession;
+  workspaceToken = '';
+  try {
+    const data = await workspaceRequest(register ? 'register' : 'login', payload, '');
+    if (session !== remoteSession) return;
+    if (register) status.textContent = 'Registered. Log in to use your workspace.';
+    else {
+      if (typeof data.token !== 'string') throw new Error('Missing session token');
+      workspaceToken = data.token;
+      status.textContent = 'Logged in. Session retained in memory only.';
+    }
+  } catch(error) { if (session === remoteSession) status.textContent = error.message; }
+}
+
+async function workspaceAction(action) {
+  const status = document.getElementById('ws-status');
+  const session = remoteSession;
+  if (!workspaceToken) { status.textContent = 'Log in first.'; return; }
+  let payload = {};
+  if (action === 'save' || action === 'delete') payload.id = document.getElementById('ws-doc-id').value;
+  if (action === 'save') payload.text = document.getElementById('ws-doc-text').value;
+  if (action === 'ask') payload.question = document.getElementById('ws-question').value;
+  try {
+    const token = workspaceToken;
+    if (action === 'logout') workspaceToken = '';
+    const data = await workspaceRequest(action, payload, token);
+    if (session === remoteSession) status.textContent = JSON.stringify(data,null,2);
+  } catch(error) { if (session === remoteSession) status.textContent = error.message; }
 }
 
 // ── Agents ─────────────────────────────────────────────

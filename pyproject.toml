@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apicalai-client"
+version = "0.1.0"
+description = "Experimental ApicalAI HTTP client"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+packages = ["apicalai_sdk"]

@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd --gid 10001 apicalai && useradd --uid 10001 --gid 10001 --no-create-home apicalai
 WORKDIR /app
 
 # Install Python dependencies (only numpy)
@@ -20,7 +21,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
-COPY . .
+COPY --chown=10001:10001 . .
+RUN mkdir -p /app/data && chown -R 10001:10001 /app/data
+USER 10001:10001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
