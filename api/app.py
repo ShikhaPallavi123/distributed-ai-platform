@@ -1,5 +1,5 @@
 """
-ApicalAI API — FastAPI application for the Distributed AI Inference Engine.
+ApicalAI API — standard-library HTTP application for the Distributed AI Inference Engine.
 
 Provides REST endpoints for inference, model management, worker monitoring,
 agentic AI orchestration, and system metrics.
@@ -15,6 +15,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import traceback
 import hmac
+from api.storage import Storage
 from inference.demo_sentiment import DemoSentimentModel
 from inference.ollama_adapter import OllamaAdapter, OllamaBackendError
 
@@ -89,7 +90,8 @@ class AgentTask:
 
 
 class AppState:
-    def __init__(self):
+    def __init__(self, db_path=None):
+        self.storage = Storage(db_path) if db_path else None
         self.models: dict[str, ModelInfo] = {}
         self.workers: dict[str, WorkerInfo] = {}
         self.requests: dict[str, InferenceResponse] = {}
@@ -107,6 +109,22 @@ class AppState:
         self._latencies: list[float] = []
         self._completed_events: list[tuple[float, float]] = []  # (wall time, latency in ms)
         self._init_demo_data()
+        if self.storage:
+            for metadata in self.storage.models():
+                if metadata["name"] not in self.models and metadata["name"] != "ollama-local":
+                    metadata["status"] = "registered"
+                    self.models[metadata["name"]] = ModelInfo(**metadata)
+
+    def persist_model(self, model):
+        if self.storage:
+            self.storage.save_model(asdict(model))
+
+    def persist_usage(self, response):
+        if self.storage:
+            self.storage.record_usage(
+                response.request_id, response.model, response.worker_id,
+                response.latency_ms, time.time(),
+            )
 
     def _init_demo_data(self):
         """Register the only executable model and its real local CPU worker."""
@@ -185,7 +203,7 @@ class AppState:
         }
 
 
-state = AppState()
+state = AppState(os.environ.get("APICALAI_DB_PATH") or None)
 
 # Real trained model; optional external language model (no fake model registrations).
 sentiment_model = DemoSentimentModel()
@@ -224,9 +242,14 @@ class APIHandler(BaseHTTPRequestHandler):
     def _send_json(self, data: Any, status: int = 200):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin")
+        allowed = os.environ.get("APICALAI_ALLOWED_ORIGIN", "")
+        if origin and origin == allowed:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
 
@@ -241,17 +264,31 @@ class APIHandler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _require_api_key(self) -> bool:
+        """Optional deployment-wide shared API key; health remains public."""
+        token = os.environ.get("APICALAI_API_KEY", "")
+        if token and not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
+            self._send_json({"error": "Valid API key required"}, 401)
+            return False
+        return True
+
     def _read_body(self) -> dict:
-        length = int(self.headers.get("Content-Length", 0))
-        if length == 0:
-            return {}
-        return json.loads(self.rfile.read(length))
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if not 0 <= length <= 262144:
+                raise ValueError("Body must be at most 256 KiB")
+            body = json.loads(self.rfile.read(length)) if length else {}
+            if not isinstance(body, dict):
+                raise ValueError("JSON body must be an object")
+            return body
+        except (ValueError, UnicodeError) as exc:
+            raise ValueError("Invalid or oversized JSON request") from exc
 
     def _serve_static(self, file_path: str):
         """Serve a static file from the ui/ directory."""
         base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ui")
         full_path = os.path.normpath(os.path.join(base_dir, file_path))
-        if not full_path.startswith(os.path.normpath(base_dir)):
+        if os.path.commonpath([os.path.realpath(full_path), os.path.realpath(base_dir)]) != os.path.realpath(base_dir):
             self._send_json({"error": "Forbidden"}, 403)
             return
         if not os.path.isfile(full_path):
@@ -283,6 +320,8 @@ class APIHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         parse_qs(parsed.query)  # available for future route params
+        if path.startswith("/api/") and path != "/api/health" and not self._require_api_key():
+            return
 
         routes = {
             "/api/health": self._health,
@@ -310,6 +349,8 @@ class APIHandler(BaseHTTPRequestHandler):
         elif path.startswith("/static/"):
             # Serve static files (css, js)
             self._serve_static(path[1:])  # strip leading /
+        elif path.startswith("/api/"):
+            self._send_json({"error": "Not found"}, 404)
         else:
             # Serve the dashboard for any non-API route
             self._serve_static("templates/index.html")
@@ -318,6 +359,8 @@ class APIHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
+        if not self._require_api_key():
+            return
         routes = {
             "/api/inference": self._run_inference,
             "/api/models": self._register_model,
@@ -330,18 +373,28 @@ class APIHandler(BaseHTTPRequestHandler):
         if handler:
             if path in ("/api/models", "/api/workers") and not self._require_admin():
                 return
-            handler()
+            try:
+                handler()
+            except (ValueError, KeyError, TypeError):
+                self._send_json({"error": "Invalid request body"}, 400)
         else:
             self._send_json({"error": "Not found"}, 404)
 
     def do_DELETE(self):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
+        if not self._require_api_key():
+            return
         if path.startswith("/api/models/"):
             if not self._require_admin():
                 return
             name = path.split("/")[-1]
+            if name in ("demo-sentiment-v1", "ollama-local"):
+                self._send_json({"error": "Built-in models cannot be deleted"}, 409)
+                return
             if name in state.models:
+                if state.storage:
+                    state.storage.delete_model(name)
                 del state.models[name]
                 self._send_json({"status": "deleted", "model": name})
             else:
@@ -385,7 +438,8 @@ class APIHandler(BaseHTTPRequestHandler):
         state.metrics["active_workers"] = len([w for w in state.workers.values() if w.status == "healthy"])
         state.metrics["models_loaded"] = len([m for m in state.models.values() if m.status == "loaded"])
         state.metrics["requests_per_second"] = state.requests_per_second()
-        self._send_json({**state.metrics, "percentiles": state.get_percentiles()})
+        persisted = state.storage.usage_summary() if state.storage else None
+        self._send_json({**state.metrics, "percentiles": state.get_percentiles(), "persisted_usage": persisted})
 
     def _get_latency_history(self):
         self._send_json({"history": state.get_latency_history(), "source": "measured"})
@@ -445,9 +499,11 @@ class APIHandler(BaseHTTPRequestHandler):
                 latency_ms=round(latency, 2),
                 worker_id=worker_id,
             )
-            state.requests[response.request_id] = response
+            state.persist_usage(response)
             self._send_json(asdict(response))
 
+        except ValueError as exc:
+            self._send_json({"error": str(exc)}, 400)
         except Exception:
             state.metrics["total_errors"] += 1
             traceback.print_exc()
@@ -509,7 +565,7 @@ class APIHandler(BaseHTTPRequestHandler):
                     latency_ms=round(latency, 2),
                     worker_id="local-cpu",
                 )
-                state.requests[req_id] = response
+                state.persist_usage(response)
                 state.metrics["total_requests"] += 1
                 state.record_latency(latency)
                 state.workers["local-cpu"].tasks_completed += 1
@@ -520,6 +576,8 @@ class APIHandler(BaseHTTPRequestHandler):
                 "total_latency_ms": round((time.perf_counter() - total_start) * 1000, 2),
                 "execution_mode": "sequential_cpu",
             })
+        except ValueError as exc:
+            self._send_json({"error": str(exc)}, 400)
         except Exception:
             state.metrics["total_errors"] += 1
             traceback.print_exc()
@@ -536,6 +594,12 @@ class APIHandler(BaseHTTPRequestHandler):
             parameters=body.get("parameters", 0),
             status="registered",
         )
+        if not isinstance(model.name, str) or not model.name or len(model.name) > 128:
+            raise ValueError("Invalid model name")
+        if model.name in state.models:
+            self._send_json({"error": "Model name already exists"}, 409)
+            return
+        state.persist_model(model)
         state.models[model.name] = model
         self._send_json({"status": "registered", "model": asdict(model)}, 201)
 
@@ -548,6 +612,9 @@ class APIHandler(BaseHTTPRequestHandler):
             status="unverified",
             gpu_memory_total=0.0,
         )
+        if worker.worker_id in state.workers:
+            self._send_json({"error": "Worker already exists"}, 409)
+            return
         state.workers[worker.worker_id] = worker
         self._send_json({"status": "registered", "worker": asdict(worker)}, 201)
 
@@ -584,9 +651,9 @@ class APIHandler(BaseHTTPRequestHandler):
                 "id": w.worker_id,
                 "host": w.host,
                 "status": w.status,
-                "connections": [other.worker_id for other in state.workers.values() if other.worker_id != w.worker_id][:3],
+                "connections": [],
             })
-        self._send_json({"topology": "mesh", "nodes": nodes})
+        self._send_json({"topology": "registered_workers", "nodes": nodes, "network_links_verified": False})
 
 
 def create_server(host: str = "0.0.0.0", port: int = 8080) -> HTTPServer:
@@ -597,8 +664,9 @@ def create_server(host: str = "0.0.0.0", port: int = 8080) -> HTTPServer:
 
 
 def main():
-    port = int(os.environ.get("PORT", 8080))
-    server = create_server(port=port)
+    port = int(os.environ.get("PORT", os.environ.get("APICALAI_PORT", 8080)))
+    host = os.environ.get("APICALAI_HOST", "127.0.0.1")
+    server = create_server(host=host, port=port)
     try:
         print(f"ApicalAI API running on port {port}")
         print(f"Dashboard: http://localhost:{port}/")
@@ -606,7 +674,7 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down...")
-        server.shutdown()
+        server.server_close()
 
 
 if __name__ == "__main__":
