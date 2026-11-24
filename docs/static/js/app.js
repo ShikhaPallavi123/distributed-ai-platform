@@ -14,6 +14,9 @@ const state = {
   refreshInterval: null,
   charts: {},
   demoMode: false,
+  browserMode: false,
+  localEvents: [],
+  browserStartedAt: Date.now(),
   terminalLines: [],
 };
 
@@ -31,29 +34,107 @@ async function api(path, opts = {}) {
   }
 }
 
-// ── Mock data for static/demo deployment ──────────────
-const MOCK = {
-  models: [
-    { id: 'gpt-apicalai-7b', name: 'gpt-apicalai-7b', framework: 'ApicalAI', parameters: 7e9, status: 'loaded', avg_latency: 42.3, version: '2.1' },
-    { id: 'resnet50-classifier', name: 'resnet50-classifier', framework: 'ApicalAI', parameters: 26e6, status: 'loaded', avg_latency: 8.7, version: '1.4' },
-    { id: 'bert-sentiment', name: 'bert-sentiment', framework: 'ApicalAI', parameters: 110e6, status: 'loaded', avg_latency: 15.2, version: '3.0' },
-    { id: 'vae-imagegen', name: 'vae-imagegen', framework: 'ApicalAI', parameters: 15e6, status: 'loaded', avg_latency: 23.1, version: '1.2' },
-    { id: 'agent-planner-v2', name: 'agent-planner-v2', framework: 'ApicalAI', parameters: 350e6, status: 'loaded', avg_latency: 67.5, version: '2.0' },
-  ],
-  workers: [
-    { id: 'gpu-worker-01', status: 'healthy', gpu_type: 'A100-80GB', gpu_memory_total: 85899345920, gpu_memory_used: 42949672960, current_load: 62, tasks_completed: 14823 },
-    { id: 'gpu-worker-02', status: 'healthy', gpu_type: 'A100-80GB', gpu_memory_total: 85899345920, gpu_memory_used: 34359738368, current_load: 45, tasks_completed: 12104 },
-    { id: 'gpu-worker-03', status: 'busy', gpu_type: 'V100-32GB', gpu_memory_total: 34359738368, gpu_memory_used: 30064771072, current_load: 88, tasks_completed: 9847 },
-    { id: 'gpu-worker-04', status: 'healthy', gpu_type: 'V100-32GB', gpu_memory_total: 34359738368, gpu_memory_used: 17179869184, current_load: 38, tasks_completed: 11290 },
-    { id: 'cpu-worker-05', status: 'healthy', gpu_type: 'CPU-only', gpu_memory_total: 68719476736, gpu_memory_used: 21474836480, current_load: 29, tasks_completed: 6531 },
-    { id: 'gpu-worker-06', status: 'healthy', gpu_type: 'A10G-24GB', gpu_memory_total: 25769803776, gpu_memory_used: 15461882266, current_load: 55, tasks_completed: 8912 },
-  ],
-  metrics: { total_requests: 83472, requests_per_second: 142, avg_latency_ms: 23.4, error_rate: 0.02 },
-  latency: { p50: 18.3, p95: 45.7, p99: 89.2 },
-  throughput: { current: 142, peak: 312, avg: 127 },
-};
+// ── Actual local inference on GitHub Pages ─────────────────────
+function enableBrowserMode() {
+  state.browserMode = true;
+  state.demoMode = false;
+  state.models = [{
+    id: 'browser-sentiment-v1',
+    name: 'browser-sentiment-v1',
+    framework: 'JavaScript (CPU)',
+    parameters: window.ApicalBrowserModel.vocabularySize + 1,
+    status: 'loaded',
+    version: '1.0',
+  }];
+  state.workers = [{
+    id: 'visitor-browser-cpu', worker_id: 'visitor-browser-cpu',
+    status: 'healthy', gpu_type: 'Browser CPU',
+    gpu_memory_total: 0, gpu_memory_used: 0,
+    current_load: null, tasks_completed: state.localEvents.length,
+  }];
+  updateBrowserMetrics();
+  updateConnectionStatus('browser');
+  setCounts();
+  renderPage();
+}
 
+function setCounts() {
+  document.getElementById('model-count').textContent = state.models.length;
+  document.getElementById('worker-count').textContent = state.workers.length;
+}
+
+function updateConnectionStatus(mode) {
+  const detail = document.getElementById('connection-status');
+  const side = document.getElementById('sidebar-status');
+  if (detail) {
+    detail.textContent = mode === 'browser' ? 'Local CPU model' : 'Backend connected';
+  }
+  if (side) {
+    side.textContent = mode === 'browser'
+      ? 'Inference runs in your browser'
+      : 'Connected to the inference API';
+  }
+}
+
+function percentile(values, percentage) {
+  if (values.length === 0) return 0;
+  const ordered = [...values].sort((a, b) => a - b);
+  const rank = (ordered.length - 1) * percentage / 100;
+  const low = Math.floor(rank);
+  const high = Math.min(low + 1, ordered.length - 1);
+  return ordered[low] + (ordered[high] - ordered[low]) * (rank - low);
+}
+
+function updateBrowserMetrics() {
+  const now = Date.now();
+  const recent = state.localEvents.filter(e => now - e.timestampMs < 60000);
+  const latencies = state.localEvents.map(e => e.latencyMs);
+  const recentLatencies = recent.map(e => e.latencyMs);
+  const secondsActive = Math.max(1, Math.min(60, (now - state.browserStartedAt) / 1000));
+  const buckets = new Map();
+  for (const event of recent) {
+    const second = Math.floor(event.timestampMs / 1000);
+    if (!buckets.has(second)) buckets.set(second, []);
+    buckets.get(second).push(event.latencyMs);
+  }
+  state.metrics = {
+    total_requests: state.localEvents.length,
+    requests_per_second: Number((recent.length / secondsActive).toFixed(3)),
+    avg_latency_ms: latencies.length
+      ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
+    uptime_seconds: (now - state.browserStartedAt) / 1000,
+    models_loaded: 1,
+    active_workers: 1,
+  };
+  state.latency = {
+    p50: percentile(recentLatencies, 50),
+    p95: percentile(recentLatencies, 95),
+    p99: percentile(recentLatencies, 99),
+    history: [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([second, values]) => ({
+      timestamp: second, p50: percentile(values, 50),
+      p95: percentile(values, 95), p99: percentile(values, 99),
+    })),
+  };
+  state.throughput = {
+    history: [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([second, values]) => ({
+      timestamp: second, requests_per_second: values.length,
+    })),
+  };
+  if (state.workers[0]) state.workers[0].tasks_completed = state.localEvents.length;
+}
+
+function recordBrowserPrediction(latencyMs) {
+  state.localEvents.push({ timestampMs: Date.now(), latencyMs });
+  updateBrowserMetrics();
+}
+
+// Do not claim GitHub Pages hosts a Python API or a GPU cluster.
 async function refreshData() {
+  const staticPage = location.hostname.endsWith('.github.io') || location.protocol === 'file:';
+  if (staticPage) {
+    enableBrowserMode();
+    return;
+  }
   const [models, workers, metrics, latency, throughput] = await Promise.all([
     api('/api/models'),
     api('/api/workers'),
@@ -61,16 +142,22 @@ async function refreshData() {
     api('/api/metrics/latency'),
     api('/api/metrics/throughput'),
   ]);
-  // Static GitHub Pages uses sample data; label it clearly, never imply live telemetry.
-  state.demoMode = !models || !models.models || !workers || !workers.workers || !metrics;
-  state.models = (models && models.models) ? models.models : MOCK.models;
-  state.workers = (workers && workers.workers) ? workers.workers : MOCK.workers;
-  state.metrics = metrics || MOCK.metrics;
-  state.latency = (latency && latency.history) ? { ...((metrics && metrics.percentiles) || {}), ...latency } : { history: [], p50: 0, p95: 0, p99: 0 };
-  state.throughput = (throughput && throughput.history) ? throughput : { history: [] };
-  document.getElementById('model-count').textContent = state.models.length;
-  document.getElementById('worker-count').textContent = state.workers.length;
-  renderPage();
+  if (!models || !Array.isArray(models.models) || !workers || !Array.isArray(workers.workers) || !metrics) {
+    enableBrowserMode();
+    return;
+  }
+  state.browserMode = false;
+  state.demoMode = false;
+  state.models = models.models;
+  state.workers = workers.workers;
+  state.metrics = metrics;
+  state.latency = latency && Array.isArray(latency.history)
+    ? { ...((metrics && metrics.percentiles) || {}), ...latency }
+    : { history: [], p50: 0, p95: 0, p99: 0 };
+  state.throughput = throughput && Array.isArray(throughput.history) ? throughput : { history: [] };
+  updateConnectionStatus('backend');
+  setCounts();
+  if (state.page !== 'inference') renderPage();
 }
 
 // ── Router ─────────────────────────────────────────────
@@ -109,7 +196,7 @@ function renderDashboard() {
   const gpuPct = totalGPU ? Math.round((usedGPU / totalGPU) * 100) : 0;
 
   return `
-    ${state.demoMode ? '<div style="padding:12px; margin-bottom:12px; background:#f7f1f4; color:#6a4555; border:2px solid #a08892; border-radius:8px; font-weight:600;">DEMO PREVIEW — Sample data. No live backend is connected. Numbers below are illustrative.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
+    ${state.browserMode ? '<div style="padding:12px; margin-bottom:12px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px;">LIVE LOCAL MODEL — Sentiment predictions run on your device, not on a remote AI server. Metrics below reflect only this browser session; no GPU cluster is connected.</div>' : '<div style="padding:8px; margin-bottom:12px; color:var(--green);">LIVE — Connected to ApicalAI API</div>'}
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Dashboard</h1>
     <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Real-time inference engine monitoring</p>
 
@@ -135,9 +222,9 @@ function renderDashboard() {
         <div class="stat-change">p99: ${(l.p99 || 0).toFixed(1)}ms</div>
       </div>
       <div class="stat-card red">
-        <div class="stat-label">GPU Utilization</div>
-        <div class="stat-value">${gpuPct}%</div>
-        <div class="stat-change">${fmtBytes(usedGPU)} / ${fmtBytes(totalGPU)}</div>
+        <div class="stat-label">${state.browserMode ? "GPU" : "GPU Utilization"}</div>
+        <div class="stat-value">${state.browserMode ? "Not used" : gpuPct + "%"}</div>
+        <div class="stat-change">${state.browserMode ? "Inference runs on local CPU" : fmtBytes(usedGPU) + " / " + fmtBytes(totalGPU)}</div>
       </div>
     </div>
 
@@ -215,11 +302,11 @@ function renderDashboard() {
 function renderModels() {
   return `
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Model Registry</h1>
-    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Manage and deploy AI models across the cluster</p>
+    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">${state.browserMode ? 'This is the trained CPU model available in your browser. Custom deployments require a backend.' : 'Manage and deploy AI models across the connected backend.'}</p>
     <div class="card">
       <div class="card-header">
         <span class="card-title">🧠 Registered Models</span>
-        <button class="btn btn-primary btn-sm" onclick="showLoadModel()">+ Deploy Model</button>
+        ${state.browserMode ? "" : '<button class="btn btn-primary btn-sm" onclick="showLoadModel()">+ Deploy Model</button>'}
       </div>
       <div class="card-body" style="padding:0;">
         <table class="table">
@@ -253,7 +340,7 @@ function renderModels() {
 function renderWorkers() {
   return `
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Worker Fleet</h1>
-    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">GPU/CPU worker nodes in the inference cluster</p>
+    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">${state.browserMode ? 'Your browser is the only active compute worker. No remote cluster or GPU is connected.' : 'Backend-reported worker nodes.'}</p>
     <div class="stats-grid">
       ${state.workers.map(w => `
         <div class="stat-card ${w.status === 'healthy' ? 'green' : w.status === 'busy' ? 'amber' : 'red'}">
@@ -293,7 +380,7 @@ function renderWorkers() {
 function renderInference() {
   return `
     <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Inference Playground</h1>
-    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">Run AI inference through the distributed engine</p>
+    <p style="color:var(--text-muted); margin-bottom:24px; font-size:13px;">${state.browserMode ? 'Real sentiment classification runs privately in this browser. Try: wonderful great excellent or awful broken disappointing. This is a small trained demo, not a chatbot.' : 'Run model inference through the connected backend API.'}</p>
     <div class="grid-2">
       <div class="card">
         <div class="card-header"><span class="card-title">🔮 Single Inference</span></div>
@@ -536,10 +623,28 @@ async function submitInference() {
   const input = document.getElementById('inf-input').value;
   const el = document.getElementById('inf-result');
   el.innerHTML = '<div class="badge busy">Processing...</div>';
-  let r = await api('/api/inference', {
-    method: 'POST',
-    body: JSON.stringify({ model: model, input: { text: input } }),
-  });
+  let r;
+  if (state.browserMode) {
+    if (model !== 'browser-sentiment-v1') {
+      el.textContent = 'This browser cannot execute the selected model.';
+      return;
+    }
+    try {
+      const started = performance.now();
+      const output = window.ApicalBrowserModel.predict(input);
+      const latency_ms = performance.now() - started;
+      recordBrowserPrediction(latency_ms);
+      r = { output, latency_ms, worker_id: 'visitor-browser-cpu' };
+    } catch (error) {
+      el.textContent = error.message;
+      return;
+    }
+  } else {
+    r = await api('/api/inference', {
+      method: 'POST',
+      body: JSON.stringify({ model: model, input: { text: input } }),
+    });
+  }
   if (!r || !r.output) {
     el.textContent = (r && r.error) || 'Inference is unavailable. Start the API and deploy a model.';
     return;
@@ -553,24 +658,49 @@ async function submitInference() {
 
 async function submitBatch() {
   const model = document.getElementById('batch-model').value;
-  const inputs = document.getElementById('batch-input').value.split('\n').filter(Boolean);
+  const inputs = document.getElementById('batch-input').value.split('\\n').map(t => t.trim()).filter(Boolean);
   const el = document.getElementById('batch-result');
-  el.innerHTML = '<div class="badge busy">Processing batch...</div>';
-  const r = await api('/api/batch', {
-    method: 'POST',
-    body: JSON.stringify({ requests: inputs.map(t => ({ model: model, input: { text: t } })) }),
-  });
-  if (!r || !r.results) {
+  el.textContent = 'Processing batch...';
+  if (inputs.length < 1 || inputs.length > 32) {
+    el.textContent = 'Enter 1 to 32 non-empty lines.';
+    return;
+  }
+  let r;
+  if (state.browserMode) {
+    if (model !== 'browser-sentiment-v1') {
+      el.textContent = 'This browser model is unavailable.';
+      return;
+    }
+    const prepared = [];
+    try {
+      for (const input of inputs) {
+        const started = performance.now();
+        const output = window.ApicalBrowserModel.predict(input);
+        prepared.push({ output, latency_ms: performance.now() - started });
+      }
+    } catch (error) {
+      el.textContent = error.message;
+      return;
+    }
+    prepared.forEach(item => recordBrowserPrediction(item.latency_ms));
+    r = { results: prepared, execution_mode: 'sequential_browser_cpu' };
+  } else {
+    r = await api('/api/batch', {
+      method: 'POST',
+      body: JSON.stringify({ requests: inputs.map(t => ({ model: model, input: { text: t } })) }),
+    });
+  }
+  if (!r || !Array.isArray(r.results)) {
     el.textContent = (r && r.error) || 'Batch inference unavailable';
     return;
   }
-  if (r && r.results) {
-    el.innerHTML = `
-      <div class="code-block" style="margin-top:8px;">
-        <div style="color:var(--green); margin-bottom:8px;">✓ Batch complete — ${r.results.length} results in ${r.total_latency_ms?.toFixed(1) || '?'}ms</div>
-        ${r.results.map((res, i) => `<div style="margin-bottom:4px;"><span style="color:var(--accent);">[${i}]</span> ${JSON.stringify(res.output)}</div>`).join('')}
-      </div>`;
-  }
+  el.innerHTML = '<div class="code-block" style="margin-top:8px;">'
+    + '<div style="color:var(--green);margin-bottom:8px;">'
+    + 'Completed ' + r.results.length + ' real predictions'
+    + (r.execution_mode ? ' · ' + escapeHtml(r.execution_mode) : '') + '</div>'
+    + r.results.map((result, index) => '<div style="margin-bottom:6px;">[' + index + '] '
+      + escapeHtml(JSON.stringify(result.output)) + '</div>').join('')
+    + '</div>';
 }
 
 async function runAgent() {
@@ -579,6 +709,10 @@ async function runAgent() {
   const el = document.getElementById('agent-result');
   const trace = document.getElementById('reasoning-trace');
   el.textContent = 'Checking agent availability...';
+  if (state.browserMode) {
+    el.textContent = 'Agent execution requires a deployed backend. This page currently runs only a local sentiment classifier.';
+    return;
+  }
   trace.textContent = 'Agent execution trace is only available after a real backend is connected.';
   const r = await api('/api/agents/run', {
     method: 'POST',
@@ -783,5 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateClock();
   setInterval(updateClock, 1000);
   refreshData();
-  state.refreshInterval = setInterval(refreshData, 5000);
+  if (!(location.hostname.endsWith('.github.io') || location.protocol === 'file:')) {
+    state.refreshInterval = setInterval(refreshData, 5000);
+  }
 });
