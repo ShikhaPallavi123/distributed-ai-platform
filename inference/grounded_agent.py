@@ -56,9 +56,12 @@ def run_agent(generate, goal, documents=None, max_steps=3):
                         "token_usage": token_usage}
             if tool == "evidence":
                 indices = choice.get("indices")
-                if (set(choice) != {"tool", "indices"} or not isinstance(indices, list)
-                        or not 1 <= len(indices) <= 5 or any(type(i) is not int or i < 0
-                        or i >= len(passages) for i in indices)):
+                if (
+                    set(choice) != {"tool", "indices"}
+                    or not isinstance(indices, list)
+                    or not 1 <= len(indices) <= 5
+                    or any(type(i) is not int or not 0 <= i < len(passages) for i in indices)
+                ):
                     raise ValueError("invalid evidence indices")
                 selected = [passages[i] for i in dict.fromkeys(indices)]
                 trace.append({"tool": tool, "status": "executed"})
