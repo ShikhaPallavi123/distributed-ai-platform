@@ -32,7 +32,7 @@ class TestIntelligence(unittest.TestCase):
             json.dumps({"message": {"content": "hi"}}).encode()
         )):
             self.assertEqual(model.chat(messages)["text"], "hi")
-        payload = b'{"message":{"content":"hi"},"done":false}\\n{"done":true}\\n'
+        payload = b'{"message":{"content":"hi"},"done":false}\n{"done":true}\n'
         with patch("inference.ollama_adapter.urlopen", return_value=io.BytesIO(payload)):
             self.assertEqual(list(model.chat(messages, stream=True)), [
                 {"text": "hi", "done": False}, {"done": True, "generated_tokens": None},

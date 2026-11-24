@@ -725,10 +725,10 @@ class APIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         try:
             for chunk in result:
-                self.wfile.write(json.dumps(chunk).encode() + b"\\n")
+                self.wfile.write(json.dumps(chunk).encode() + b"\n")
                 self.wfile.flush()
         except OllamaBackendError:
-            self.wfile.write(b'{"error":"Chat backend unavailable","done":false}\\n')
+            self.wfile.write(b'{"error":"Chat backend unavailable","done":false}\n')
         except (BrokenPipeError, ConnectionResetError):
             pass
         finally:

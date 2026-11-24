@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/live-llm-smoke.yml'
       - 'inferbench/llm_smoke.py'
+      - 'api/app.py'
       - 'inference/ollama_adapter.py'
       - 'inference/adaptive_router.py'
       - 'inference/model_pool.py'
