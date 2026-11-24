@@ -93,12 +93,14 @@ jobs:
           python -m inferbench.runner --duration 1 --iterations 100 --cold-start-trials 3 --output results.json
           python -c "import json; r=json.load(open('results.json')); assert len(r['engines']) == 2; assert all('error' not in e for e in r['engines'].values())"
           python -m inferbench.report results.json --output report.html
+          python -m inferbench.batch_study --repeats 20 --output batch-study.json
       - uses: actions/upload-artifact@v4
         with:
           name: inferbench-exploratory-cpu
           path: |
             results.json
             report.html
+            batch-study.json
 
   docker:
     name: Docker Build

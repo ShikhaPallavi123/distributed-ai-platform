@@ -520,7 +520,7 @@ class APIHandler(BaseHTTPRequestHandler):
     def _batch_inference(self):
         """Execute a bounded batch using the real NumPy classifier.
 
-        The MVP runs items sequentially; this is *not* dynamic GPU batching.
+        Supports sequential or vectorized CPU computation; not dynamic GPU batching.
         Validate all inputs before recording metrics or returning success.
         """
         try:
@@ -555,16 +555,24 @@ class APIHandler(BaseHTTPRequestHandler):
                     return
                 validated.append(text_input)
 
+            mode = body.get("mode", "sequential_cpu")
+            if mode not in ("sequential_cpu", "vectorized_cpu"):
+                self._send_json({"error": "Unsupported batch mode"}, 400)
+                return
             total_start = time.perf_counter()
             prepared = []
-            for text_input in validated:
+            if mode == "vectorized_cpu":
                 start = time.perf_counter()
-                try:
+                predictions = sentiment_model.predict_batch(validated)
+                elapsed = (time.perf_counter() - start) * 1000
+                # All items finish after the same batch computation. Do not
+                # divide elapsed time by batch size and call it request latency.
+                prepared = [(prediction, elapsed) for prediction in predictions]
+            else:
+                for text_input in validated:
+                    start = time.perf_counter()
                     prediction = sentiment_model.predict(text_input)
-                except ValueError as exc:
-                    self._send_json({"error": str(exc)}, 400)
-                    return
-                prepared.append((prediction, (time.perf_counter() - start) * 1000))
+                    prepared.append((prediction, (time.perf_counter() - start) * 1000))
 
             results = []
             for prediction, latency in prepared:
@@ -585,7 +593,8 @@ class APIHandler(BaseHTTPRequestHandler):
                 "batch_size": len(results),
                 "results": results,
                 "total_latency_ms": round((time.perf_counter() - total_start) * 1000, 2),
-                "execution_mode": "sequential_cpu",
+                "execution_mode": mode,
+                "latency_scope": "shared_batch_compute" if mode == "vectorized_cpu" else "individual_compute",
             })
         except ValueError as exc:
             self._send_json({"error": str(exc)}, 400)

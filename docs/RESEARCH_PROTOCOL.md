@@ -26,3 +26,11 @@ initialization is not process cold start. No GPU or agent capability is measured
 Future paper: characterize resource tradeoffs for comparable models across
 constrained systems. Literature review and external baselines must establish
 the research gap before novelty is claimed.
+
+## Paired vectorized CPU experiment
+
+Run `python -m inferbench.batch_study --repeats 20 --output batch-study.json`.
+Both variants use exactly the same trained weights, validate equal outputs,
+execute warm-up predictions and alternate order. Raw timings are retained.
+This is a CPU microbenchmark of vectorized operations, not GPU dynamic batching.
+The API also accepts `mode: vectorized_cpu` on `/api/batch` (up to 32 items).

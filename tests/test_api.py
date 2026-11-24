@@ -235,5 +235,19 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(self._post("/api/inference", {"model": []})[0], 400)
         self.assertEqual(self._get("/api/unknown")[0], 404)
 
+    def test_vectorized_batch_matches_sequential(self):
+        items = [
+            {"model": "demo-sentiment-v1", "input": {"text": "wonderful great"}},
+            {"model": "demo-sentiment-v1", "input": {"text": "awful terrible"}},
+        ]
+        status, baseline = self._post("/api/batch", {"requests": items})
+        self.assertEqual(status, 200)
+        status, batch = self._post("/api/batch", {"requests": items, "mode": "vectorized_cpu"})
+        self.assertEqual(status, 200)
+        self.assertEqual(batch["execution_mode"], "vectorized_cpu")
+        self.assertEqual(batch["latency_scope"], "shared_batch_compute")
+        self.assertEqual([r["output"] for r in baseline["results"]],
+                         [r["output"] for r in batch["results"]])
+
 if __name__ == "__main__":
     unittest.main()
