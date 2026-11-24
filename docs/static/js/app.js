@@ -917,7 +917,13 @@ document.addEventListener('DOMContentLoaded', () => {
   updateClock();
   setInterval(updateClock, 1000);
   refreshData();
-  if (!(location.hostname.endsWith('.github.io') || location.protocol === 'file:')) {
+  if (location.hostname.endsWith('.github.io') || location.protocol === 'file:') {
+    state.refreshInterval = setInterval(() => {
+      if (!state.browserMode) return;
+      updateBrowserMetrics();
+      if (state.page === 'dashboard') renderPage();
+    }, 5000);
+  } else {
     state.refreshInterval = setInterval(refreshData, 5000);
   }
 });
