@@ -249,5 +249,6 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual([r["output"] for r in baseline["results"]],
                          [r["output"] for r in batch["results"]])
 
+
 if __name__ == "__main__":
     unittest.main()
