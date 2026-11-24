@@ -78,6 +78,28 @@ jobs:
           cmp ui/static/js/app.js docs/static/js/app.js
           cmp ui/static/js/browser_model.js docs/static/js/browser_model.js
 
+  research:
+    name: InferBench actual baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-research.txt
+      - run: python -m unittest tests.test_inferbench -v
+      - name: Run real exploratory CPU comparison
+        run: |
+          python -m inferbench.runner --duration 1 --iterations 100 --cold-start-trials 3 --output results.json
+          python -c "import json; r=json.load(open('results.json')); assert len(r['engines']) == 2; assert all('error' not in e for e in r['engines'].values())"
+          python -m inferbench.report results.json --output report.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inferbench-exploratory-cpu
+          path: |
+            results.json
+            report.html
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
