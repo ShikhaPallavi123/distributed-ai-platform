@@ -1,0 +1,55 @@
+name: Live pretrained LLM smoke test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-llm-smoke.yml'
+      - 'inferbench/llm_smoke.py'
+      - 'inference/ollama_adapter.py'
+      - 'inference/adaptive_router.py'
+      - 'inference/model_pool.py'
+
+permissions:
+  contents: read
+
+jobs:
+  llm:
+    name: Real Ollama CPU inference
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MODEL: qwen2.5:0.5b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Start official Ollama CPU container
+        run: |
+          docker run -d --name apicalai-ollama-test -p 127.0.0.1:11434:11434 ollama/ollama:latest
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/tags; then exit 0; fi
+            sleep 2
+          done
+          docker logs apicalai-ollama-test
+          exit 1
+      - name: Pull actual pretrained model and record versions
+        run: |
+          docker exec apicalai-ollama-test ollama pull "$MODEL"
+          docker exec apicalai-ollama-test ollama list
+          docker inspect --format='{{.Image}}' apicalai-ollama-test > ollama-image.txt
+          docker exec apicalai-ollama-test ollama --version >> ollama-image.txt
+      - name: Execute real inference through direct and routed API
+        run: python -m inferbench.llm_smoke --model "$MODEL" --output llm-smoke.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: real-llm-smoke
+          path: |
+            llm-smoke.json
+            ollama-image.txt
+      - name: Clean up
+        if: always()
+        run: docker rm -f apicalai-ollama-test || true

@@ -40,3 +40,13 @@ The study compares fastest-only, highest-calibration-accuracy-only, and
 quality-constrained policies. Failed or abstained predictions count against
 accuracy; coverage and raw latency measurements are reported separately.
 Use a substantial public dataset with an untouched test split for a paper.
+
+## Live pretrained-model smoke check
+
+The separate GitHub Actions workflow downloads Qwen2.5 0.5B from Ollama into
+an ephemeral CPU container and executes the real adapter, direct inference
+API, and routed inference API. The smoke test records a tiny calibration
+set, actual generated text, model metadata, and Ollama image/version.
+It does not host a public endpoint, test multiple physical machines, or
+establish model quality. See https://ollama.com/library/qwen2.5:0.5b and
+https://ollama.com/blog/ollama-is-now-available-as-an-official-docker-image.
