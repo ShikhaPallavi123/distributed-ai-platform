@@ -17,3 +17,10 @@ class TestPublicSentiment(unittest.TestCase):
         self.assertEqual(predictions.tolist(), [0, 1])
         self.assertEqual(escalation.tolist(), [False, True])
         self.assertEqual(unique_rows([("Same", 0), ("same", 1), ("new", 0)]), [("Same", 0), ("new", 0)])
+
+    def test_multiline_record(self):
+        from inferbench.public_sentiment import parse_labeled_text
+        self.assertEqual(parse_labeled_text("first part\nsecond part\t1\nbad\t0\n"),
+                         [("first part second part", 1), ("bad", 0)])
+        with self.assertRaises(ValueError):
+            parse_labeled_text("unfinished")

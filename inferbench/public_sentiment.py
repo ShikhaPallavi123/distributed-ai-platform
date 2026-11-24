@@ -19,6 +19,28 @@ URL = "https://archive.ics.uci.edu/static/public/331/sentiment%2Blabelled%2Bsent
 FILES = {"amazon": "amazon_cells_labelled.txt", "imdb": "imdb_labelled.txt", "yelp": "yelp_labelled.txt"}
 
 
+def parse_labeled_text(raw):
+    """Treat a terminal tab and binary label as a record delimiter."""
+    import re
+    rows = []
+    pending = []
+    for line in raw.split("\n"):
+        if not line.strip():
+            continue
+        match = re.fullmatch(r"(.*)\t([01])\s*", line.rstrip("\r"))
+        if match:
+            text = " ".join(pending + [match.group(1)]).strip()
+            if not text:
+                raise ValueError("Empty labeled row")
+            rows.append((text, int(match.group(2))))
+            pending.clear()
+        else:
+            pending.append(line.strip())
+    if pending:
+        raise ValueError("Unterminated record in dataset")
+    return rows
+
+
 def load_archive(raw):
     domains = {}
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
@@ -26,14 +48,7 @@ def load_archive(raw):
             matches = [n for n in archive.namelist() if n.endswith("/" + filename) or n == filename]
             if len(matches) != 1 or archive.getinfo(matches[0]).file_size > 1000000:
                 raise ValueError("Unexpected dataset archive structure")
-            rows = []
-            for line in archive.read(matches[0]).decode("utf-8", errors="strict").splitlines():
-                if not line.strip():
-                    continue
-                text, label = line.rsplit("\t", 1)
-                if label.strip() not in ("0", "1") or not text.strip():
-                    raise ValueError("Invalid labeled row")
-                rows.append((text.strip(), int(label.strip())))
+            rows = parse_labeled_text(archive.read(matches[0]).decode("utf-8", errors="strict"))
             if len(rows) != 1000:
                 raise ValueError("Unexpected source example count")
             domains[domain] = rows
