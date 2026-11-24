@@ -24,6 +24,16 @@ async function main() {
       querySelectorAll() { return []; },
     },
     performance,
+    URL,
+    fetch: async (url, options) => {
+      assert.equal(options.redirect, 'error');
+      assert.equal(options.credentials, 'omit');
+      assert.equal(options.headers.Authorization, 'Bearer test-client-key');
+      const data = url.endsWith('/api/models')
+        ? {models: [{id: 'llm-test', status: 'configured'}]}
+        : {selected_model: 'llm-test', output: {text: '<script>never execute</script>'}};
+      return {ok: true, json: async () => data};
+    },
     setTimeout() {}, // Avoid canvas rendering in this minimal DOM mock.
     setInterval() {},
     clearInterval() {},
@@ -62,6 +72,22 @@ async function main() {
   vm.runInContext('navigate("dashboard")', context);
   assert.match(getElementById('content').innerHTML, /Inference runs on local CPU/);
   assert.doesNotMatch(getElementById('content').innerHTML, /gpu-worker-01/);
+  assert.throws(() => vm.runInContext('parseBackendOrigin("http://example.com")', context), /HTTPS/);
+  assert.throws(() => vm.runInContext('parseBackendOrigin("https://example.com/path")', context), /origin/);
+  vm.runInContext('navigate("remote")', context);
+  assert.match(getElementById('content').innerHTML, /Remote Inference/);
+  getElementById('remote-origin').value = 'https://example.com';
+  getElementById('remote-key').value = 'test-client-key';
+  await vm.runInContext('connectRemote()', context);
+  assert.match(getElementById('remote-status').textContent, /llm-test/);
+  assert.equal(getElementById('remote-key').value, '');
+  getElementById('remote-prompt').value = 'test';
+  getElementById('remote-quality').value = '0.5';
+  await vm.runInContext('runRemote(true)', context);
+  assert.match(getElementById('remote-result').textContent, /never execute/);
+  assert.equal(getElementById('remote-result').innerHTML, '');
+  vm.runInContext('disconnectRemote()', context);
+  assert.equal(vm.runInContext('remoteConnection.key', context), '');
   console.log('GitHub Pages real-inference smoke test passed');
 }
 

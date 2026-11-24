@@ -9,6 +9,10 @@ services:
       APICALAI_DB_PATH: "/app/data/apicalai.sqlite3"
       APICALAI_API_KEY: "${APICALAI_API_KEY:-}"
       APICALAI_ADMIN_TOKEN: "${APICALAI_ADMIN_TOKEN:-}"
+      APICALAI_ALLOWED_ORIGIN: "${APICALAI_ALLOWED_ORIGIN:-}"
+      APICALAI_OLLAMA_MODEL: "${APICALAI_OLLAMA_MODEL:-}"
+      APICALAI_OLLAMA_URL: "${APICALAI_OLLAMA_URL:-http://host.docker.internal:11434}"
+      APICALAI_MODEL_POOL: "${APICALAI_MODEL_POOL:-}"
     volumes:
       - app-data:/app/data
     restart: unless-stopped

@@ -55,7 +55,7 @@ function enableBrowserMode() {
   updateBrowserMetrics();
   updateConnectionStatus('browser');
   setCounts();
-  renderPage();
+  if (state.page !== 'remote') renderPage();
 }
 
 function setCounts() {
@@ -157,7 +157,7 @@ async function refreshData() {
   state.throughput = throughput && Array.isArray(throughput.history) ? throughput : { history: [] };
   updateConnectionStatus('backend');
   setCounts();
-  if (state.page !== 'inference') renderPage();
+  if (!['inference', 'remote'].includes(state.page)) renderPage();
 }
 
 // ── Router ─────────────────────────────────────────────
@@ -176,6 +176,7 @@ function renderPage() {
     models: renderModels,
     workers: renderWorkers,
     inference: renderInference,
+    remote: renderRemote,
     agents: renderAgents,
     architecture: renderArchitecture,
     topology: renderTopology,
@@ -420,6 +421,134 @@ function renderInference() {
       </div>
     </div>
   `;
+}
+
+// ── Remote inference console (explicitly trusted endpoints only) ─────
+const remoteConnection = { origin: '', key: '' };
+
+function parseBackendOrigin(value) {
+  const url = new URL(value.trim());
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new Error('Use HTTPS, or HTTP on localhost for development.');
+  }
+  if (url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new Error('Enter only the backend origin, without credentials, paths or query strings.');
+  }
+  return url.origin;
+}
+
+async function remoteRequest(path, body) {
+  if (!remoteConnection.origin) throw new Error('Connect to a trusted backend first.');
+  const headers = { 'Content-Type': 'application/json' };
+  if (remoteConnection.key) headers.Authorization = 'Bearer ' + remoteConnection.key;
+  const response = await fetch(remoteConnection.origin + path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers,
+    credentials: 'omit',
+    redirect: 'error',
+    cache: 'no-store',
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  let data;
+  try { data = await response.json(); } catch (error) {
+    throw new Error('Backend returned a non-JSON response (HTTP ' + response.status + ').');
+  }
+  if (!response.ok) throw new Error('Backend rejected the request (HTTP ' + response.status + ').');
+  return data;
+}
+
+function renderRemote() {
+  return `
+    <h1 style="font-size:24px; font-weight:700; margin-bottom:4px;">Remote Inference</h1>
+    <p style="color:var(--text-muted); margin-bottom:24px;">Connect to your own trusted ApicalAI API. GitHub Pages does not host a language model. A separate HTTPS backend and compatible CORS settings are required.</p>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><span class="card-title">Backend connection</span></div>
+      <div class="card-body">
+        <label for="remote-origin">Trusted backend origin</label>
+        <input id="remote-origin" type="url" autocomplete="off" placeholder="https://your-backend.example" style="display:block;width:100%;margin:8px 0 12px;padding:10px;">
+        <label for="remote-key">Client API key (optional; never enter an admin token)</label>
+        <input id="remote-key" type="password" autocomplete="off" style="display:block;width:100%;margin:8px 0 12px;padding:10px;">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Your key is sent only to the backend you choose and held in memory until you disconnect or reload. Prompts are sent to that backend. Trust the operator before connecting.</p>
+        <button class="btn btn-primary" onclick="connectRemote()">Connect and list models</button>
+        <button class="btn btn-secondary" onclick="disconnectRemote()">Disconnect</button>
+        <pre id="remote-status" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px;">${remoteConnection.origin ? 'Connected session. Reconnect to list models.' : 'Not connected.'}</pre>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Real inference and experimental routing</span></div>
+      <div class="card-body">
+        <label for="remote-model">Model alias (as listed by the backend)</label>
+        <input id="remote-model" type="text" placeholder="demo-sentiment-v1 or llm-your-model" style="display:block;width:100%;margin:8px 0 12px;padding:10px;">
+        <label for="remote-prompt">Prompt</label>
+        <textarea id="remote-prompt" rows="5" maxlength="8000" style="display:block;width:100%;margin:8px 0 12px;padding:10px;"></textarea>
+        <button class="btn btn-primary" onclick="runRemote(false)">Run selected model</button>
+        <hr style="margin:16px 0;opacity:.3;">
+        <label for="remote-quality">Minimum calibration quality lower bound (0–1)</label>
+        <input id="remote-quality" type="number" min="0" max="1" step="0.05" value="0.5" style="display:block;width:100%;margin:8px 0 12px;padding:10px;">
+        <label for="remote-budget">Estimated latency budget (ms, optional)</label>
+        <input id="remote-budget" type="number" min="1" step="1" placeholder="5000" style="display:block;width:100%;margin:8px 0 12px;padding:10px;">
+        <button class="btn btn-secondary" onclick="runRemote(true)">Run quality-constrained routing</button>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Routing requires an operator-calibrated LLM pool. Past accuracy and latency are not guarantees of a correct answer or hard deadline.</p>
+        <pre id="remote-result" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:16px;"></pre>
+      </div>
+    </div>
+  `;
+}
+
+async function connectRemote() {
+  const status = document.getElementById('remote-status');
+  const keyInput = document.getElementById('remote-key');
+  remoteConnection.origin = '';
+  remoteConnection.key = '';
+  try {
+    remoteConnection.origin = parseBackendOrigin(document.getElementById('remote-origin').value);
+    remoteConnection.key = keyInput.value;
+    keyInput.value = '';
+    status.textContent = 'Connecting...';
+    const result = await remoteRequest('/api/models');
+    if (!result || !Array.isArray(result.models)) throw new Error('Not a compatible ApicalAI backend.');
+    status.textContent = 'Connected. Models:\n' + result.models.map(item =>
+      String(item.id || item.name) + ' — ' + String(item.status || 'unknown')).join('\n');
+  } catch (error) {
+    remoteConnection.origin = '';
+    remoteConnection.key = '';
+    keyInput.value = '';
+    status.textContent = error.message;
+  }
+}
+
+function disconnectRemote() {
+  remoteConnection.origin = '';
+  remoteConnection.key = '';
+  document.getElementById('remote-key').value = '';
+  document.getElementById('remote-status').textContent = 'Disconnected.';
+  document.getElementById('remote-result').textContent = '';
+}
+
+async function runRemote(routed) {
+  const result = document.getElementById('remote-result');
+  const text = document.getElementById('remote-prompt').value;
+  result.textContent = 'Running inference...';
+  try {
+    if (!text.trim()) throw new Error('Enter a prompt.');
+    let data;
+    if (routed) {
+      const minQuality = Number(document.getElementById('remote-quality').value);
+      const budget = document.getElementById('remote-budget').value.trim();
+      if (!Number.isFinite(minQuality) || minQuality < 0 || minQuality > 1) throw new Error('Quality must be between 0 and 1.');
+      if (budget && (!Number.isFinite(Number(budget)) || Number(budget) <= 0)) throw new Error('Latency budget must be positive.');
+      data = await remoteRequest('/api/route', { text, min_quality: minQuality,
+        ...(budget ? { max_latency_ms: Number(budget) } : {}) });
+    } else {
+      const model = document.getElementById('remote-model').value.trim();
+      if (!model) throw new Error('Enter a model alias.');
+      data = await remoteRequest('/api/inference', { model, input: { text } });
+    }
+    result.textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    result.textContent = error.message;
+  }
 }
 
 // ── Agents ─────────────────────────────────────────────
